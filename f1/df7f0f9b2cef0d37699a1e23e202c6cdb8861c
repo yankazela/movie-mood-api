@@ -1,0 +1,90 @@
+src/services/recommendations/BedrockMoodResolverImpl.ts
+  s_0b6a9714c22355::t_a046d50d0fc942 1,34-37,41,46,66,69-71
+package.json
+  s_0b6a9714c22355::t_f85e0515306ea8 27,29-30,33
+src/services/recommendations/S3VectorsCandidateRetrieverImpl.ts
+  s_0b6a9714c22355::t_6d8f525e9ccbca 1-76
+test/catalog-refresh.test.ts
+  s_0b6a9714c22355::t_7fde089874f2d7 258,261-262
+  s_0b6a9714c22355::t_1c0b69ea5cf8c2 1-34,42-44,46-215,220-226,229-257,259-260,263-264
+  s_0b6a9714c22355::t_c5797bc3d43666 35-41,45,216-219,227-228
+src/services/vectors/VectorIndex.ts
+  s_0b6a9714c22355::t_6d8f525e9ccbca 1-29
+src/services/catalog/CatalogRefreshServiceImpl.ts
+  s_0b6a9714c22355::t_7fde089874f2d7 305-323
+  s_0b6a9714c22355::t_652277eb2ea49b 1-304,324-329
+cdk/lib/app/movie-mood-stack.ts
+  s_0b6a9714c22355::t_a046d50d0fc942 190,193-194,202-203,205-210
+  s_0b6a9714c22355::t_08986faee6da17 179-180,212,214-215
+src/services/vectors/S3VectorsIndexImpl.ts
+  s_0b6a9714c22355::t_6d8f525e9ccbca 1-80
+test/recommendations.test.ts
+  s_0b6a9714c22355::t_1c0b69ea5cf8c2 183-184
+src/services/recommendations/config.ts
+  s_0b6a9714c22355::t_a046d50d0fc942 11-15
+cdk/lib/infrastructure/storages-stack.ts
+  s_0b6a9714c22355::t_1c0b69ea5cf8c2 7,89-115
+src/services/recommendations/RecommendationServiceImpl.ts
+  s_0b6a9714c22355::t_6d8f525e9ccbca 10-11,39,66,197-200
+  s_0b6a9714c22355::t_79f69a7e0575a7 201-202
+src/services/recommendations/UnconfiguredCandidateRetriever.ts
+  s_0b6a9714c22355::t_6d8f525e9ccbca 1-12
+src/services/recommendations/BedrockExplanationServiceImpl.ts
+  s_0b6a9714c22355::t_a046d50d0fc942 1,30,37,113,116
+cdk/bin/movie-mood.ts
+  s_0b6a9714c22355::t_5dbbcd20967241 4,9,16-19
+package-lock.json
+  s_0b6a9714c22355::t_0a2b52782652b2 17,19-20,23,421-439,462-480
+src/api/catalog-refresh/index.ts
+  s_0b6a9714c22355::t_d132b64da43598 1-42
+src/services/catalog/BedrockMoodDescriberImpl.ts
+  s_0b6a9714c22355::t_b4343030e30c69 1-80
+src/services/catalog/CatalogRefreshService.ts
+  s_0b6a9714c22355::t_b936be8876fccd 1-10
+src/services/catalog/MoodDescriber.ts
+  s_0b6a9714c22355::t_8d65f41f04dc4f 1-13
+src/services/catalog/TmdbClient.ts
+  s_0b6a9714c22355::t_58e4edbdd128e8 1-59
+src/services/catalog/TmdbClientImpl.ts
+  s_0b6a9714c22355::t_c2a5413c2670e3 1-116
+src/services/catalog/config.ts
+  s_0b6a9714c22355::t_e1d4d14b6100b6 1-32
+src/services/catalog/domain/types.ts
+  s_0b6a9714c22355::t_8eb6d265ca27d8 1-40
+src/services/common/concurrency.ts
+  s_0b6a9714c22355::t_558437799d8282 1-16
+src/services/config/ConfigRepository.ts
+  s_0b6a9714c22355::t_ad793bd073e422 1-6
+src/services/config/ConfigRepositoryImpl.ts
+  s_0b6a9714c22355::t_5e63c0353fd3f3 1-34
+src/services/movies/MovieRepository.ts
+  s_0b6a9714c22355::t_5b2a20996bdbae 9-11
+src/services/movies/MovieRepositoryImpl.ts
+  s_0b6a9714c22355::t_5de615e31c1c89 48-68
+src/services/providers/ProviderRepository.ts
+  s_0b6a9714c22355::t_b212167acd0a2d 1-5
+src/services/providers/ProviderRepositoryImpl.ts
+  s_0b6a9714c22355::t_62b7c7ec2dcde5 1-23
+src/services/storage/AssetStore.ts
+  s_0b6a9714c22355::t_d400d1800d90e3 1-4
+src/services/storage/S3AssetStoreImpl.ts
+  s_0b6a9714c22355::t_8c90228da744cb 1-53
+test/s3vectors-retriever.test.ts
+  s_0b6a9714c22355::t_dd29e875f1e30a 1-50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f1df7f0f9b2cef0d37699a1e23e202c6cdb8861c",
+  "prompts": {},
+  "sessions": {
+    "s_0b6a9714c22355": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b43beefb-2459-41d4-a044-ae2bdab03e29",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Yanick Kazadi <yanickkazadi@Mac.cgocable.net>"
+    }
+  }
+}
