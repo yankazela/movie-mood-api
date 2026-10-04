@@ -1,0 +1,216 @@
+{
+  "/movie-mood-auth-dev": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:19:1)",
+        "...node internals, ts-node, ts-node, ts-node..."
+      ]
+    },
+    {
+      "type": "aws:cdk:warning",
+      "data": "No cross-stack-reference strength configured, defaulting to \"strong\". We recommend you set feature flag \"@aws-cdk/core:defaultCrossStackReferences\" to \"both\", then deploy everywhere, then set it to \"weak\". Alternatively, set it to \"strong\" explicitly to lock in the current producer-protecting behavior. (See: https://github.com/aws/aws-cdk/blob/main/packages/aws-cdk-lib/README.md#reference-strength) [ack: @aws-cdk/core:crossStackReferencesDefaultStrong]",
+      "trace": [
+        "Annotations.addMessage (/Users/yanickkazadi/MovieMood/node_modules/aws-cdk-lib/core/lib/annotations.js:1:3506)",
+        "Annotations.addWarningV2 (/Users/yanickkazadi/MovieMood/node_modules/aws-cdk-lib/core/lib/annotations.js:1:2194)",
+        "resolveValue (/Users/yanickkazadi/MovieMood/node_modules/aws-cdk-lib/core/lib/private/refs.js:1:7177)",
+        "resolveReferencesInElements (/Users/yanickkazadi/MovieMood/node_modules/aws-cdk-lib/core/lib/private/refs.js:1:5045)",
+        "resolveReferences (/Users/yanickkazadi/MovieMood/node_modules/aws-cdk-lib/core/lib/private/refs.js:1:4718)",
+        "prepareApp (/Users/yanickkazadi/MovieMood/node_modules/aws-cdk-lib/core/lib/private/prepare-app.js:1:1240)",
+        "synthesize (/Users/yanickkazadi/MovieMood/node_modules/aws-cdk-lib/core/lib/private/synthesis.js:1:2625)",
+        "App.synth (/Users/yanickkazadi/MovieMood/node_modules/aws-cdk-lib/core/lib/stage.js:1:5061)",
+        "App.synth (/Users/yanickkazadi/MovieMood/node_modules/aws-cdk-lib/core/lib/app.js:1:5126)",
+        "Object.<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:25:5)",
+        "Module._compile (node:internal/modules/cjs/loader:1809:14)",
+        "Module.m._compile (/Users/yanickkazadi/MovieMood/node_modules/ts-node/src/index.ts:1618:23)",
+        "Module._extensions..js (node:internal/modules/cjs/loader:1940:10)",
+        "Object.require.extensions.<computed> [as .ts] (/Users/yanickkazadi/MovieMood/node_modules/ts-node/src/index.ts:1621:12)",
+        "Module.load (node:internal/modules/cjs/loader:1530:32)",
+        "Module._load (node:internal/modules/cjs/loader:1332:12)",
+        "wrapModuleLoad (node:internal/modules/cjs/loader:255:19)",
+        "Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)",
+        "phase4 (/Users/yanickkazadi/MovieMood/node_modules/ts-node/src/bin.ts:649:14)",
+        "bootstrap (/Users/yanickkazadi/MovieMood/node_modules/ts-node/src/bin.ts:95:10)",
+        "main (/Users/yanickkazadi/MovieMood/node_modules/ts-node/src/bin.ts:55:10)",
+        "Object.<anonymous> (/Users/yanickkazadi/MovieMood/node_modules/ts-node/src/bin.ts:800:3)",
+        "Module._compile (node:internal/modules/cjs/loader:1809:14)",
+        "Object.Module._extensions..js (node:internal/modules/cjs/loader:1940:10)",
+        "Module.load (node:internal/modules/cjs/loader:1530:32)",
+        "Module._load (node:internal/modules/cjs/loader:1332:12)",
+        "wrapModuleLoad (node:internal/modules/cjs/loader:255:19)",
+        "Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)",
+        "node:internal/main/run_main_module:33:47"
+      ]
+    }
+  ],
+  "/movie-mood-auth-dev/UserPoolId": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserPoolId"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new AuthStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/auth-stack.ts:63:3)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:19:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-auth-dev/UserPoolArn": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserPoolArn"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new AuthStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/auth-stack.ts:68:3)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:19:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-auth-dev/UserPoolClientId": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserPoolClientId"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new AuthStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/auth-stack.ts:73:3)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:19:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-auth-dev/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/movie-mood-auth-dev/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/movie-mood-auth-dev/UserPool/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserPool6BA7E5F2"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new UserPool2 in aws-cdk-lib...",
+        "new AuthStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/auth-stack.ts:23:19)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:19:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-auth-dev/UserPool/PostConfirmationCognito": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserPoolPostConfirmationCognito0E6001F8"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...PropertyInjectable.<anonymous> in aws-cdk-lib...",
+        "new AuthStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/auth-stack.ts:61:17)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:19:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-auth-dev/UserConfirmedHandler/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserConfirmedHandler4A08B4B0"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Function2 in aws-cdk-lib...",
+        "new AuthStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/auth-stack.ts:49:32)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:19:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-auth-dev/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in aws-cdk-lib...",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:25:5)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/movie-mood-auth-dev/UserPool/ApiClient/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserPoolApiClient5E25D46A"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...PropertyInjectable.addClient in aws-cdk-lib...",
+        "new AuthStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/auth-stack.ts:38:34)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:19:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-auth-dev/UserConfirmedHandler/ServiceRole/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserConfirmedHandlerServiceRole5590616F"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Function2 in aws-cdk-lib...",
+        "new AuthStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/auth-stack.ts:49:32)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:19:1)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-auth-dev/UserConfirmedHandler/ServiceRole/DefaultPolicy/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UserConfirmedHandlerServiceRoleDefaultPolicyD603985E"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ]
+}

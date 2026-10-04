@@ -1,0 +1,391 @@
+{
+ "Resources": {
+  "UsersTable9725E9C8": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "userId",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "DeletionProtectionEnabled": true,
+    "KeySchema": [
+     {
+      "AttributeName": "userId",
+      "KeyType": "HASH"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": true
+    },
+    "TableName": "movie-mood-users-dev"
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "movie-mood-storage-dev/UsersTable/Resource"
+   }
+  },
+  "RequestsTable419243C7": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "userId",
+      "AttributeType": "S"
+     },
+     {
+      "AttributeName": "requestedAt",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "DeletionProtectionEnabled": false,
+    "KeySchema": [
+     {
+      "AttributeName": "userId",
+      "KeyType": "HASH"
+     },
+     {
+      "AttributeName": "requestedAt",
+      "KeyType": "RANGE"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": true
+    },
+    "TableName": "movie-mood-requests-dev",
+    "TimeToLiveSpecification": {
+     "AttributeName": "ttl",
+     "Enabled": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "movie-mood-storage-dev/RequestsTable/Resource"
+   }
+  },
+  "JobsTable1970BC16": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "jobId",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "DeletionProtectionEnabled": false,
+    "KeySchema": [
+     {
+      "AttributeName": "jobId",
+      "KeyType": "HASH"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": false
+    },
+    "TableName": "movie-mood-jobs-dev",
+    "TimeToLiveSpecification": {
+     "AttributeName": "ttl",
+     "Enabled": true
+    }
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "movie-mood-storage-dev/JobsTable/Resource"
+   }
+  },
+  "MoviesTable0F76A3E4": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "movieId",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "DeletionProtectionEnabled": false,
+    "KeySchema": [
+     {
+      "AttributeName": "movieId",
+      "KeyType": "HASH"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": false
+    },
+    "TableName": "movie-mood-movies-dev"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "movie-mood-storage-dev/MoviesTable/Resource"
+   }
+  },
+  "ProvidersTable1BBEDB6D": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "country",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "DeletionProtectionEnabled": false,
+    "KeySchema": [
+     {
+      "AttributeName": "country",
+      "KeyType": "HASH"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": false
+    },
+    "TableName": "movie-mood-providers-dev"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "movie-mood-storage-dev/ProvidersTable/Resource"
+   }
+  },
+  "ConfigTable5CD72349": {
+   "Type": "AWS::DynamoDB::Table",
+   "Properties": {
+    "AttributeDefinitions": [
+     {
+      "AttributeName": "configKey",
+      "AttributeType": "S"
+     }
+    ],
+    "BillingMode": "PAY_PER_REQUEST",
+    "DeletionProtectionEnabled": false,
+    "KeySchema": [
+     {
+      "AttributeName": "configKey",
+      "KeyType": "HASH"
+     }
+    ],
+    "PointInTimeRecoverySpecification": {
+     "PointInTimeRecoveryEnabled": false
+    },
+    "TableName": "movie-mood-config-dev"
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "movie-mood-storage-dev/ConfigTable/Resource"
+   }
+  },
+  "MovieMoodBucket6D05BA81": {
+   "Type": "AWS::S3::Bucket",
+   "Properties": {
+    "BucketName": "movie-mood-storage-dev",
+    "PublicAccessBlockConfiguration": {
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
+    }
+   },
+   "UpdateReplacePolicy": "Retain",
+   "DeletionPolicy": "Retain",
+   "Metadata": {
+    "aws:cdk:path": "movie-mood-storage-dev/MovieMoodBucket/Resource"
+   }
+  },
+  "CDKMetadata": {
+   "Type": "AWS::CDK::Metadata",
+   "Properties": {
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/yWNQQrCMBBFz+I+GSWi7vUAQnUvaTJCmjaRzowiIXc3tqv/eDz4BszJwG5jP6Sdj3oMPZQbWxdVU4/iv8lO2Td5t/2I6vJMC1RFeyhncRH5L1eqVXVIWWa3lFfhl3BVKXuEgbZvc4BjOxsoBD1L4jAhdOv+AIJ4cBOJAAAA"
+   },
+   "Metadata": {
+    "aws:cdk:path": "movie-mood-storage-dev/CDKMetadata/Default"
+   }
+  }
+ },
+ "Outputs": {
+  "UsersTableName": {
+   "Value": {
+    "Ref": "UsersTable9725E9C8"
+   },
+   "Export": {
+    "Name": "movie-mood-UsersTableName-dev"
+   }
+  },
+  "UsersTableArn": {
+   "Value": {
+    "Fn::GetAtt": [
+     "UsersTable9725E9C8",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "movie-mood-UsersTableArn-dev"
+   }
+  },
+  "RequestsTableName": {
+   "Value": {
+    "Ref": "RequestsTable419243C7"
+   },
+   "Export": {
+    "Name": "movie-mood-RequestsTableName-dev"
+   }
+  },
+  "RequestsTableArn": {
+   "Value": {
+    "Fn::GetAtt": [
+     "RequestsTable419243C7",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "movie-mood-RequestsTableArn-dev"
+   }
+  },
+  "JobsTableName": {
+   "Value": {
+    "Ref": "JobsTable1970BC16"
+   },
+   "Export": {
+    "Name": "movie-mood-JobsTableName-dev"
+   }
+  },
+  "JobsTableArn": {
+   "Value": {
+    "Fn::GetAtt": [
+     "JobsTable1970BC16",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "movie-mood-JobsTableArn-dev"
+   }
+  },
+  "MoviesTableName": {
+   "Value": {
+    "Ref": "MoviesTable0F76A3E4"
+   },
+   "Export": {
+    "Name": "movie-mood-MoviesTableName-dev"
+   }
+  },
+  "MoviesTableArn": {
+   "Value": {
+    "Fn::GetAtt": [
+     "MoviesTable0F76A3E4",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "movie-mood-MoviesTableArn-dev"
+   }
+  },
+  "ProvidersTableName": {
+   "Value": {
+    "Ref": "ProvidersTable1BBEDB6D"
+   },
+   "Export": {
+    "Name": "movie-mood-ProvidersTableName-dev"
+   }
+  },
+  "ProvidersTableArn": {
+   "Value": {
+    "Fn::GetAtt": [
+     "ProvidersTable1BBEDB6D",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "movie-mood-ProvidersTableArn-dev"
+   }
+  },
+  "ConfigTableName": {
+   "Value": {
+    "Ref": "ConfigTable5CD72349"
+   },
+   "Export": {
+    "Name": "movie-mood-ConfigTableName-dev"
+   }
+  },
+  "ConfigTableArn": {
+   "Value": {
+    "Fn::GetAtt": [
+     "ConfigTable5CD72349",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "movie-mood-ConfigTableArn-dev"
+   }
+  },
+  "MovieMoodBucketName": {
+   "Value": {
+    "Ref": "MovieMoodBucket6D05BA81"
+   },
+   "Export": {
+    "Name": "movie-mood-MovieMoodBucketName-dev"
+   }
+  },
+  "ExportsOutputFnGetAttUsersTable9725E9C8Arn5684EF99": {
+   "Value": {
+    "Fn::GetAtt": [
+     "UsersTable9725E9C8",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "movie-mood-storage-dev:ExportsOutputFnGetAttUsersTable9725E9C8Arn5684EF99"
+   }
+  },
+  "ExportsOutputRefUsersTable9725E9C857961836": {
+   "Value": {
+    "Ref": "UsersTable9725E9C8"
+   },
+   "Export": {
+    "Name": "movie-mood-storage-dev:ExportsOutputRefUsersTable9725E9C857961836"
+   }
+  }
+ },
+ "Parameters": {
+  "BootstrapVersion": {
+   "Type": "AWS::SSM::Parameter::Value<String>",
+   "Default": "/cdk-bootstrap/hnb659fds/version",
+   "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]"
+  }
+ },
+ "Rules": {
+  "CheckBootstrapVersion": {
+   "Assertions": [
+    {
+     "Assert": {
+      "Fn::Not": [
+       {
+        "Fn::Contains": [
+         [
+          "1",
+          "2",
+          "3",
+          "4",
+          "5"
+         ],
+         {
+          "Ref": "BootstrapVersion"
+         }
+        ]
+       }
+      ]
+     },
+     "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI."
+    }
+   ]
+  }
+ }
+}

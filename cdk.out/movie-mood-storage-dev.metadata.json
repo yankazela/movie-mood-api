@@ -1,0 +1,430 @@
+{
+  "/movie-mood-storage-dev": [
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/UsersTable": [
+    {
+      "type": "aws:cdk:hasPhysicalName",
+      "data": {
+        "Ref": "UsersTable9725E9C8"
+      }
+    }
+  ],
+  "/movie-mood-storage-dev/UsersTableName": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UsersTableName"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:120:3)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:35:21)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/UsersTableArn": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UsersTableArn"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:125:3)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:35:21)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/RequestsTable": [
+    {
+      "type": "aws:cdk:hasPhysicalName",
+      "data": {
+        "Ref": "RequestsTable419243C7"
+      }
+    }
+  ],
+  "/movie-mood-storage-dev/RequestsTableName": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "RequestsTableName"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:120:3)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:44:24)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/RequestsTableArn": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "RequestsTableArn"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:125:3)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:44:24)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/JobsTable": [
+    {
+      "type": "aws:cdk:hasPhysicalName",
+      "data": {
+        "Ref": "JobsTable1970BC16"
+      }
+    }
+  ],
+  "/movie-mood-storage-dev/JobsTableName": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "JobsTableName"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:120:3)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:53:20)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/JobsTableArn": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "JobsTableArn"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:125:3)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:53:20)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/MoviesTable": [
+    {
+      "type": "aws:cdk:hasPhysicalName",
+      "data": {
+        "Ref": "MoviesTable0F76A3E4"
+      }
+    }
+  ],
+  "/movie-mood-storage-dev/MoviesTableName": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MoviesTableName"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:120:3)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:60:22)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/MoviesTableArn": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MoviesTableArn"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:125:3)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:60:22)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/ProvidersTable": [
+    {
+      "type": "aws:cdk:hasPhysicalName",
+      "data": {
+        "Ref": "ProvidersTable1BBEDB6D"
+      }
+    }
+  ],
+  "/movie-mood-storage-dev/ProvidersTableName": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ProvidersTableName"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:120:3)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:66:25)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/ProvidersTableArn": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ProvidersTableArn"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:125:3)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:66:25)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/ConfigTable": [
+    {
+      "type": "aws:cdk:hasPhysicalName",
+      "data": {
+        "Ref": "ConfigTable5CD72349"
+      }
+    }
+  ],
+  "/movie-mood-storage-dev/ConfigTableName": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ConfigTableName"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:120:3)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:72:22)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/ConfigTableArn": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ConfigTableArn"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:125:3)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:72:22)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/MovieMoodBucketName": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MovieMoodBucketName"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:84:3)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/BootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "BootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/CheckBootstrapVersion": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CheckBootstrapVersion"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...aws-cdk-lib...",
+        "(no user code in 10 frames, use --stack-trace-limit to capture more)"
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/UsersTable/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "UsersTable9725E9C8"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Table2 in aws-cdk-lib...",
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:94:17)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:35:21)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/RequestsTable/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "RequestsTable419243C7"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Table2 in aws-cdk-lib...",
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:94:17)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:44:24)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/JobsTable/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "JobsTable1970BC16"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Table2 in aws-cdk-lib...",
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:94:17)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:53:20)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/MoviesTable/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MoviesTable0F76A3E4"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Table2 in aws-cdk-lib...",
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:94:17)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:60:22)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/ProvidersTable/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ProvidersTable1BBEDB6D"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Table2 in aws-cdk-lib...",
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:94:17)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:66:25)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/ConfigTable/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ConfigTable5CD72349"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Table2 in aws-cdk-lib...",
+        "StorageStack.createTable (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:94:17)",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:72:22)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/MovieMoodBucket/Resource": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "MovieMoodBucket6D05BA81"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...new Bucket2 in aws-cdk-lib...",
+        "new StorageStack (/Users/yanickkazadi/MovieMood/cdk/lib/infrastructure/storages-stack.ts:77:17)",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:17:17)",
+        "...node internals, ts-node, ts-node..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/CDKMetadata/Default": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "CDKMetadata"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in aws-cdk-lib...",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:25:5)",
+        "...node internals..."
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/Exports/Output{\"Fn::GetAtt\":[\"UsersTable9725E9C8\",\"Arn\"]}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputFnGetAttUsersTable9725E9C8Arn5684EF99"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in aws-cdk-lib...",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:25:5)"
+      ]
+    }
+  ],
+  "/movie-mood-storage-dev/Exports/Output{\"Ref\":\"UsersTable9725E9C8\"}": [
+    {
+      "type": "aws:cdk:logicalId",
+      "data": "ExportsOutputRefUsersTable9725E9C857961836"
+    },
+    {
+      "type": "aws:cdk:creationStack",
+      "data": [
+        "...App.synth in aws-cdk-lib...",
+        "<anonymous> (/Users/yanickkazadi/MovieMood/cdk/bin/infrastructure.ts:25:5)"
+      ]
+    }
+  ]
+}

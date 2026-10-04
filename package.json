@@ -1,0 +1,56 @@
+{
+  "name": "movie-mood",
+  "version": "0.1.0",
+  "description": "",
+  "license": "ISC",
+  "author": "Yannick Kazadi",
+  "type": "commonjs",
+  "main": "jest.config.js",
+  "bin": {
+    "predikt-soccer-api": "bin/movie-mood.js"
+  },
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "build": "node build-lambdas.js",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk"
+  },
+  "dependencies": {
+    "@anthropic-ai/bedrock-sdk": "^0.34.2",
+    "@anthropic-ai/sdk": "^0.131.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.1146.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.1146.0",
+    "@aws-sdk/client-dynamodb": "^3.731.1",
+    "@aws-sdk/client-s3": "^3.722.0",
+    "@aws-sdk/credential-provider-node": "^3.972.84",
+    "@aws-sdk/lib-dynamodb": "^3.731.1",
+    "@novha/cdk-lib": "^0.1.1",
+    "@opensearch-project/opensearch": "^3.9.0",
+    "@types/aws-lambda": "^8.10.147",
+    "aws-cdk-lib": "2.272.0",
+    "aws-lambda": "^1.0.7",
+    "class-validator": "^0.14.4",
+    "constructs": "^10.0.0",
+    "fantasydata-node-client": "^1.8.2",
+    "predikt-global-config": "^0.3.0",
+    "predikt-sportsdata-lib": "^0.3.9",
+    "redis": "^4.7.0",
+    "source-map-support": "^0.5.21",
+    "ulid": "^3.0.2",
+    "uuid": "^11.1.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "20.12.7",
+    "aws-cdk": "2.1144.0",
+    "esbuild": "^0.28.2",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.4.5"
+  }
+}
