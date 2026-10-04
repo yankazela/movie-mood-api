@@ -21,3 +21,5 @@ yarn-error.log*
 # Build
 dist/
 build/
+# CDK synth output
+cdk.out/
