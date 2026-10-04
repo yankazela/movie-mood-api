@@ -180,6 +180,8 @@ class FakeMovieRepository implements MovieRepository {
     async saveWhy(movieId: string, key: string, entry: IWhyEntry): Promise<void> {
         this.savedWhy.push({ movieId, key, entry });
     }
+
+    async upsertCatalog(): Promise<void> {}
 }
 
 class FakeExplanationService implements ExplanationService {

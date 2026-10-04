@@ -45,6 +45,27 @@ export class MovieRepositoryImpl implements MovieRepository {
         return movies;
     }
 
+    public async upsertCatalog(movie: Omit<IMovie, "why">): Promise<void> {
+        const fields = Object.entries(movie).filter(([name, value]) => name !== "movieId" && value !== undefined);
+        const names: Record<string, string> = {};
+        const values: Record<string, unknown> = {};
+        const assignments: string[] = [];
+
+        fields.forEach(([name, value], index) => {
+            names[`#f${index}`] = name;
+            values[`:v${index}`] = value;
+            assignments.push(`#f${index} = :v${index}`);
+        });
+
+        await this.documentClient.send(new UpdateCommand({
+            TableName: this.tableName,
+            Key: { movieId: movie.movieId },
+            UpdateExpression: `SET ${assignments.join(", ")}`,
+            ExpressionAttributeNames: names,
+            ExpressionAttributeValues: values,
+        }));
+    }
+
     public async saveWhy(movieId: string, key: string, entry: IWhyEntry): Promise<void> {
         // A nested SET fails when the parent map does not exist yet, so make sure it does first.
         await this.documentClient.send(new UpdateCommand({

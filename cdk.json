@@ -1,5 +1,5 @@
 {
-  "app": "npx ts-node --prefer-ts-exts cdk/bin/infrastructure.ts",
+  "app": "npx ts-node --prefer-ts-exts cdk/bin/movie-mood.ts",
   "watch": {
     "include": [
       "**"

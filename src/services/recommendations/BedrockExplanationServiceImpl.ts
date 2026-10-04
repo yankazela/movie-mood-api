@@ -1,4 +1,4 @@
-import { AnthropicBedrockMantle } from "@anthropic-ai/bedrock-sdk";
+import { AnthropicBedrock } from "@anthropic-ai/bedrock-sdk";
 import type Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
 import { ExplanationService } from "./ExplanationService";
@@ -27,14 +27,14 @@ export function whyKey(mood: IMoodProfile, objective: EObjective): string {
 }
 
 export class BedrockExplanationServiceImpl implements ExplanationService {
-    private readonly client: AnthropicBedrockMantle;
+    private readonly client: AnthropicBedrock;
     private readonly modelId: string;
     private readonly movieRepository: MovieRepository;
     private readonly tool: Anthropic.Tool;
 
     constructor(
         movieRepository: MovieRepository = new MovieRepositoryImpl(),
-        client: AnthropicBedrockMantle = new AnthropicBedrockMantle(),
+        client: AnthropicBedrock = new AnthropicBedrock(),
         modelId: string = process.env.MOOD_MODEL_ID || DEFAULT_MOOD_MODEL_ID,
     ) {
         this.movieRepository = movieRepository;
@@ -110,10 +110,10 @@ export class BedrockExplanationServiceImpl implements ExplanationService {
         const response = await this.client.messages.create({
             model: this.modelId,
             max_tokens: 16000,
-            output_config: { effort: "low" },
+            // No output_config.effort: Haiku 4.5 rejects it. On 4.6+ models you can add { effort: "low" }.
             system: SYSTEM_PROMPT,
             tools: [this.tool],
-            tool_choice: { type: "auto", disable_parallel_tool_use: true },
+            tool_choice: { type: "tool", name: this.tool.name },
             messages: [{ role: "user", content: prompt }],
         });
 

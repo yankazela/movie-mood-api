@@ -43,9 +43,6 @@ async function buildAll() {
             target: "node18",
             outdir: path.join(distDir, lambdaName),
             plugins: [stubCdkPlugin],
-            // The OpenSearch signer lazily imports the 20 MB legacy AWS SDK v2 only as a fallback
-            // when no credential provider is supplied; ours always supplies one, so leave it out.
-            external: ["aws-sdk"],
         });
 
         console.log(`Built: ${lambdaName}`);

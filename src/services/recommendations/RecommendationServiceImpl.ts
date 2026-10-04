@@ -7,7 +7,8 @@ import { RecommendationService } from "./RecommendationService";
 import { RequestRepository } from "./RequestRepository";
 import { BedrockExplanationServiceImpl } from "./BedrockExplanationServiceImpl";
 import { BedrockMoodResolverImpl } from "./BedrockMoodResolverImpl";
-import { OpenSearchCandidateRetrieverImpl, UnconfiguredCandidateRetriever } from "./OpenSearchCandidateRetrieverImpl";
+import { S3VectorsCandidateRetrieverImpl } from "./S3VectorsCandidateRetrieverImpl";
+import { UnconfiguredCandidateRetriever } from "./UnconfiguredCandidateRetriever";
 import { RequestRepositoryImpl } from "./RequestRepositoryImpl";
 import { TitanEmbedderImpl } from "./TitanEmbedderImpl";
 import { applyObjective, renderTargetSentence } from "./targeting";
@@ -35,6 +36,7 @@ import { UserRepository } from "../users/UserRepository";
 import { UserRepositoryImpl } from "../users/UserRepositoryImpl";
 import { IUser } from "../users/domain/types";
 import { NotFoundError, RateLimitError, SafetyError, ValidationError } from "../common/errors";
+import { S3VectorsIndexImpl } from "../vectors/S3VectorsIndexImpl";
 
 export interface RecommendationDependencies {
     userRepository?: UserRepository;
@@ -61,9 +63,7 @@ export class RecommendationServiceImpl implements RecommendationService {
         this.userRepository = dependencies.userRepository ?? new UserRepositoryImpl();
         this.moodResolver = dependencies.moodResolver ?? new BedrockMoodResolverImpl();
         this.embedder = dependencies.embedder ?? new TitanEmbedderImpl();
-        this.candidateRetriever = dependencies.candidateRetriever
-            ?? OpenSearchCandidateRetrieverImpl.fromEnvironment()
-            ?? new UnconfiguredCandidateRetriever();
+        this.candidateRetriever = dependencies.candidateRetriever ?? defaultCandidateRetriever();
         this.movieRepository = dependencies.movieRepository ?? new MovieRepositoryImpl();
         this.explanationService = dependencies.explanationService ?? new BedrockExplanationServiceImpl(this.movieRepository);
         this.requestRepository = dependencies.requestRepository ?? new RequestRepositoryImpl();
@@ -192,6 +192,12 @@ export class RecommendationServiceImpl implements RecommendationService {
 
         return { chosen, notice: "few_matches" };
     }
+}
+
+function defaultCandidateRetriever(): CandidateRetriever {
+    const index = S3VectorsIndexImpl.fromEnvironment();
+
+    return index ? new S3VectorsCandidateRetrieverImpl(index) : new UnconfiguredCandidateRetriever();
 }
 
 /** Full filters, then without runtime, then without runtime and rating; identical stages are skipped. */

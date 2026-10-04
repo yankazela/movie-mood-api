@@ -176,9 +176,8 @@ export class MovieMoodApiStack extends Stack {
 			"MoviesTable",
 			Fn.importValue(`${props.projectName}-MoviesTableArn-${props.stage}`)
 		);
-		// The movie vector index lives outside this app. Pass its endpoint with
-		// `-c opensearchEndpoint=https://...`; without it the endpoint answers 503.
-		const openSearchEndpoint = (this.node.tryGetContext("opensearchEndpoint") as string | undefined) ?? "";
+		// Movie embeddings are queried from the S3 Vectors index owned by the storage stack.
+		const vectorIndexArn = Fn.importValue(`${props.projectName}-VectorIndexArn-${props.stage}`);
 
 		const recommendHandler = this.createHandler(
             "index.recommend",
@@ -188,12 +187,11 @@ export class MovieMoodApiStack extends Stack {
                 USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
                 REQUESTS_TABLE_NAME: Fn.importValue(`${props.projectName}-RequestsTableName-${props.stage}`),
                 MOVIES_TABLE_NAME: Fn.importValue(`${props.projectName}-MoviesTableName-${props.stage}`),
-                MOOD_MODEL_ID: "anthropic.claude-opus-5-5",
+                MOOD_MODEL_ID: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 EMBEDDING_MODEL_ID: "amazon.titan-embed-text-v2:0",
                 DAILY_REQUEST_CAP: "20",
-                MOVIES_INDEX: "movies",
-                OPENSEARCH_SERVICE: "es",
-                ...(openSearchEndpoint ? { OPENSEARCH_ENDPOINT: openSearchEndpoint } : {}),
+                VECTOR_BUCKET_NAME: Fn.importValue(`${props.projectName}-VectorBucketName-${props.stage}`),
+                VECTOR_INDEX_NAME: Fn.importValue(`${props.projectName}-VectorIndexName-${props.stage}`),
             },
             undefined,
             1024
@@ -201,23 +199,21 @@ export class MovieMoodApiStack extends Stack {
 		usersTable.grantReadWriteData(recommendHandler);
 		requestsTable.grantWriteData(recommendHandler);
 		moviesTable.grantReadWriteData(recommendHandler);
-		// Claude through Bedrock's Messages-API endpoint (bedrock-mantle). Tighten to model ARNs once
-		// the resource format for this action is confirmed for the account.
-		recommendHandler.addToRolePolicy(new PolicyStatement({
-			actions: ["bedrock-mantle:CreateInference"],
-			resources: ["*"],
-		}));
-		// Titan embeddings through the classic Bedrock runtime.
+		// Bedrock runtime: Claude Haiku 4.5 through its US cross-region inference profile (which needs
+		// the profile plus the underlying model in every region it routes to) and Titan embeddings.
 		recommendHandler.addToRolePolicy(new PolicyStatement({
 			actions: ["bedrock:InvokeModel"],
-			resources: [`arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`],
+			resources: [
+				`arn:aws:bedrock:${this.region}:${this.account}:inference-profile/us.anthropic.claude-haiku-4-5-20251001-v1:0`,
+				"arn:aws:bedrock:*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
+				`arn:aws:bedrock:${this.region}::foundation-model/amazon.titan-embed-text-v2:0`,
+			],
 		}));
-		if (openSearchEndpoint) {
-			recommendHandler.addToRolePolicy(new PolicyStatement({
-				actions: ["es:ESHttpGet", "es:ESHttpPost"],
-				resources: [`arn:aws:es:${this.region}:${this.account}:domain/*`],
-			}));
-		}
+		// Filtered queries need GetVectors as well as QueryVectors.
+		recommendHandler.addToRolePolicy(new PolicyStatement({
+			actions: ["s3vectors:QueryVectors", "s3vectors:GetVectors"],
+			resources: [vectorIndexArn],
+		}));
 
 		baseResource
 			.addResource('recommendations')

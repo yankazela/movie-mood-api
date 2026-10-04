@@ -4,6 +4,7 @@ import { Function } from "aws-cdk-lib/aws-lambda";
 import { Construct } from 'constructs';
 import { CommonProps } from "../../bin/project-names";
 import { Attribute, AttributeType, BillingMode, CfnTable, ProjectionType, Table } from 'aws-cdk-lib/aws-dynamodb';
+import { CfnIndex, CfnVectorBucket } from 'aws-cdk-lib/aws-s3vectors';
 
 interface TableSpec {
 	/** Short lowercase name, e.g. "users". Drives the construct id, table name and exports. */
@@ -84,6 +85,33 @@ export class StorageStack extends Stack {
 		new CfnOutput(this, "MovieMoodBucketName", {
 			value: this.bucket.bucketName,
 			exportName: `${props.projectName}-MovieMoodBucketName-${props.stage}`,
+		});
+
+		// Movie embeddings live in an S3 Vectors index: float32, cosine distance, and the dimension
+		// count of the Titan v2 embedder. Rebuilt nightly by catalog-refresh, so no retention needed.
+		const vectorBucketName = `${props.projectName}-vectors-${props.stage}`;
+		const vectorIndexName = 'movies';
+		const vectorBucket = new CfnVectorBucket(this, 'VectorBucket', { vectorBucketName });
+		const vectorIndex = new CfnIndex(this, 'MoviesVectorIndex', {
+			vectorBucketName,
+			indexName: vectorIndexName,
+			dataType: 'float32',
+			dimension: 1024,
+			distanceMetric: 'cosine',
+		});
+		vectorIndex.addResourceDependency(vectorBucket);
+
+		new CfnOutput(this, 'VectorBucketName', {
+			value: vectorBucketName,
+			exportName: `${props.projectName}-VectorBucketName-${props.stage}`,
+		});
+		new CfnOutput(this, 'VectorIndexName', {
+			value: vectorIndexName,
+			exportName: `${props.projectName}-VectorIndexName-${props.stage}`,
+		});
+		new CfnOutput(this, 'VectorIndexArn', {
+			value: `arn:aws:s3vectors:${this.region}:${this.account}:bucket/${vectorBucketName}/index/${vectorIndexName}`,
+			exportName: `${props.projectName}-VectorIndexArn-${props.stage}`,
 		});
 	}
 

@@ -8,10 +8,13 @@ export const WHY_STALE_DAYS = 30;
 /** Requests table items expire after this long. */
 export const REQUEST_TTL_DAYS = 90;
 export const DEFAULT_DAILY_CAP = 20;
-export const DEFAULT_MOOD_MODEL_ID = "anthropic.claude-opus-5-5";
+/**
+ * Claude via the classic Bedrock runtime (InvokeModel). Haiku 4.5 is open to every account but is
+ * only served through a cross-region inference profile, hence the `us.` prefix.
+ */
+export const DEFAULT_MOOD_MODEL_ID = "us.anthropic.claude-haiku-4-5-20251001-v1:0";
 export const DEFAULT_EMBEDDING_MODEL_ID = "amazon.titan-embed-text-v2:0";
 export const EMBEDDING_DIMENSIONS = 1024;
-export const DEFAULT_MOVIES_INDEX = "movies";
 
 /** Re-ranking weights; they sum to one. */
 export const RANK_WEIGHTS = {

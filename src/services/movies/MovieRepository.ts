@@ -6,4 +6,7 @@ export interface MovieRepository {
 
     /** Writes one entry into the movie's `why` map, creating the map if needed. */
     saveWhy(movieId: string, key: string, entry: IWhyEntry): Promise<void>;
+
+    /** Creates or updates the catalog fields of a movie. The `why` cache is left untouched. */
+    upsertCatalog(movie: Omit<IMovie, "why">): Promise<void>;
 }
