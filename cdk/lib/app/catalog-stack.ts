@@ -87,6 +87,7 @@ export class MovieMoodCatalogStack extends Stack {
 			description: "Refresh the MovieMood catalog every night",
 			schedule: Schedule.cron({ minute: "0", hour: "2" }),
 			targets: [new LambdaFunction(handler)],
+			enabled: false,
 		});
 	}
 }
