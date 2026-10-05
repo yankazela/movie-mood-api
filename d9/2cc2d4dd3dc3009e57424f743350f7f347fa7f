@@ -1,0 +1,14 @@
+cdk/lib/app/catalog-stack.ts
+  h_d6ef7187d79da3 90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "d92cc2d4dd3dc3009e57424f743350f7f347fa7f",
+  "prompts": {},
+  "humans": {
+    "h_d6ef7187d79da3": {
+      "author": "Yanick Kazadi <yanickkazadi@Mac.cgocable.net>"
+    }
+  }
+}
