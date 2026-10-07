@@ -4,6 +4,7 @@ import {
     AdminInitiateAuthCommand,
     AdminRespondToAuthChallengeCommand,
     AdminSetUserPasswordCommand,
+    AdminUpdateUserAttributesCommand,
     AliasExistsException,
     AuthenticationResultType,
     CognitoIdentityProviderClient,
@@ -43,8 +44,8 @@ export class AuthServiceImpl implements AuthService {
         this.clientId = clientId;
     }
 
-    public async createUser(email: string, password?: string): Promise<IIdentity> {
-        const identity = await this.adminCreateUser(email, Boolean(password));
+    public async createUser(email: string, fullName: string, password?: string): Promise<IIdentity> {
+        const identity = await this.adminCreateUser(email, fullName, Boolean(password));
 
         if (password) {
             try {
@@ -68,6 +69,14 @@ export class AuthServiceImpl implements AuthService {
         await this.client.send(new AdminDeleteUserCommand({
             UserPoolId: this.userPoolId,
             Username: username,
+        }));
+    }
+
+    public async updateName(username: string, fullName: string): Promise<void> {
+        await this.client.send(new AdminUpdateUserAttributesCommand({
+            UserPoolId: this.userPoolId,
+            Username: username,
+            UserAttributes: [{ Name: "name", Value: fullName }],
         }));
     }
 
@@ -112,7 +121,7 @@ export class AuthServiceImpl implements AuthService {
         }
     }
 
-    private async adminCreateUser(email: string, suppressInvite: boolean): Promise<IIdentity> {
+    private async adminCreateUser(email: string, fullName: string, suppressInvite: boolean): Promise<IIdentity> {
         try {
             const result = await this.client.send(new AdminCreateUserCommand({
                 UserPoolId: this.userPoolId,
@@ -120,6 +129,7 @@ export class AuthServiceImpl implements AuthService {
                 UserAttributes: [
                     { Name: "email", Value: email },
                     { Name: "email_verified", Value: "true" },
+                    { Name: "name", Value: fullName },
                 ],
                 // With a caller-supplied password there is no temporary password to deliver.
                 MessageAction: suppressInvite ? "SUPPRESS" : undefined,
@@ -161,6 +171,7 @@ export class AuthServiceImpl implements AuthService {
 
         return {
             outcome: "authenticated",
+            userId: subjectOf(tokens.IdToken),
             tokens: {
                 idToken: tokens.IdToken,
                 accessToken: tokens.AccessToken,
@@ -198,4 +209,22 @@ export class AuthServiceImpl implements AuthService {
 
         return error;
     }
+}
+
+/**
+ * Reads the `sub` claim from an ID token. The token comes straight from Cognito over TLS in the
+ * same call, so its signature does not need checking here; API Gateway verifies it on later requests.
+ */
+export function subjectOf(idToken: string): string {
+    try {
+        const payload = JSON.parse(Buffer.from(idToken.split(".")[1], "base64url").toString("utf8")) as { sub?: unknown };
+
+        if (typeof payload.sub === "string" && payload.sub) {
+            return payload.sub;
+        }
+    } catch {
+        // fall through to the error below
+    }
+
+    throw new Error("Cognito returned an ID token without a readable sub claim");
 }

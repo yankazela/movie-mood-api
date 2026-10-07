@@ -31,7 +31,7 @@ export class MovieMoodCatalogStack extends Stack {
 		const tmdbSecret = new Secret(this, "TmdbSecret", {
 			secretName: `${props.projectName}/tmdb-${props.stage}`,
 			description: "TMDB API key or read access token used by catalog-refresh",
-			secretStringValue: SecretValue.unsafePlainText(""),
+			secretStringValue: SecretValue.unsafePlainText("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJhNzJhZDI4NjVmYjcxNjJiZjA0NjY5ZDU3OTU1MTljZCIsIm5iZiI6MTc5MTEyNTMyOC41MTgwMDAxLCJzdWIiOiI2YWMyNjc1MDA3NTdlMDMyZGIzMjQ4ZTkiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.R_r4xf3a7xVVJWENmFDLy_F-O_H-VQLndiLmmERiqvY"),
 		});
 
 		// A fixed name lets the function grant itself invoke permission without a circular reference.

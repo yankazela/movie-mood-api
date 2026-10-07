@@ -1,5 +1,8 @@
+import { EMediaType } from "../media/MediaType";
+
 export interface IMoodSource {
-    movieId: string;
+    itemId: string;
+    mediaType: EMediaType;
     title: string;
     year?: number;
     genres: string[];
@@ -8,6 +11,6 @@ export interface IMoodSource {
 }
 
 export interface MoodDescriber {
-    /** Writes a short description of how each film feels to watch, by movie id. */
+    /** Writes a short description of how each item feels to experience, by item id. */
     describe(movies: IMoodSource[]): Promise<Map<string, string>>;
 }

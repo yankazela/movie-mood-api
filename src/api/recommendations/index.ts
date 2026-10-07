@@ -30,6 +30,7 @@ export const recommend = async (event: APIGatewayProxyEvent): Promise<ApiRespons
             userId,
             text: request.text,
             objective: request.objective,
+            mediaTypes: request.mediaTypes,
             inputType: EInputType.TEXT,
             // Optional custom claims; the profile is used when the token does not carry them.
             country: claims["custom:country"],

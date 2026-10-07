@@ -35,6 +35,7 @@ export function identityFromCognitoUser(username: string, attributes: CognitoUse
         userId,
         username,
         email: email.trim().toLowerCase(),
+        fullName: attributes.name?.trim() || undefined,
         provider: providerFrom(attributes.identities, username),
     };
 }

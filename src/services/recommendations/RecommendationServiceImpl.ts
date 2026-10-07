@@ -27,11 +27,12 @@ import {
     IRankedCandidate,
     IRecommendInput,
     IRecommendationResult,
-    IRecommendedMovie,
+    IRecommendedItem,
     IRetrievalFilters,
 } from "./domain/types";
-import { MovieRepository } from "../movies/MovieRepository";
-import { MovieRepositoryImpl } from "../movies/MovieRepositoryImpl";
+import { CatalogItemRepository } from "../catalog/store/CatalogItemRepository";
+import { CatalogStore } from "../catalog/store/CatalogStore";
+import { ACTIVE_MEDIA_TYPES } from "../media/MediaType";
 import { UserRepository } from "../users/UserRepository";
 import { UserRepositoryImpl } from "../users/UserRepositoryImpl";
 import { IUser } from "../users/domain/types";
@@ -43,7 +44,7 @@ export interface RecommendationDependencies {
     moodResolver?: MoodResolver;
     embedder?: Embedder;
     candidateRetriever?: CandidateRetriever;
-    movieRepository?: MovieRepository;
+    catalogStore?: CatalogItemRepository;
     explanationService?: ExplanationService;
     requestRepository?: RequestRepository;
     dailyCap?: number;
@@ -54,7 +55,7 @@ export class RecommendationServiceImpl implements RecommendationService {
     private readonly moodResolver: MoodResolver;
     private readonly embedder: Embedder;
     private readonly candidateRetriever: CandidateRetriever;
-    private readonly movieRepository: MovieRepository;
+    private readonly catalogStore: CatalogItemRepository;
     private readonly explanationService: ExplanationService;
     private readonly requestRepository: RequestRepository;
     private readonly dailyCap: number;
@@ -64,8 +65,8 @@ export class RecommendationServiceImpl implements RecommendationService {
         this.moodResolver = dependencies.moodResolver ?? new BedrockMoodResolverImpl();
         this.embedder = dependencies.embedder ?? new TitanEmbedderImpl();
         this.candidateRetriever = dependencies.candidateRetriever ?? defaultCandidateRetriever();
-        this.movieRepository = dependencies.movieRepository ?? new MovieRepositoryImpl();
-        this.explanationService = dependencies.explanationService ?? new BedrockExplanationServiceImpl(this.movieRepository);
+        this.catalogStore = dependencies.catalogStore ?? CatalogStore.fromEnvironment();
+        this.explanationService = dependencies.explanationService ?? new BedrockExplanationServiceImpl(this.catalogStore);
         this.requestRepository = dependencies.requestRepository ?? new RequestRepositoryImpl();
         this.dailyCap = dependencies.dailyCap ?? dailyCapFromEnvironment();
     }
@@ -108,6 +109,7 @@ export class RecommendationServiceImpl implements RecommendationService {
         // Embed and retrieve, then re-rank; constraints relax if too few titles survive.
         const vector = await this.embedder.embed(renderTargetSentence(target, moodProfile));
         const filters: IRetrievalFilters = {
+            mediaTypes: input.mediaTypes?.length ? input.mediaTypes : ACTIVE_MEDIA_TYPES,
             country,
             services,
             ratingsAllowed: user.ratingsAllowed ?? [],
@@ -116,24 +118,26 @@ export class RecommendationServiceImpl implements RecommendationService {
         const { chosen, notice } = await this.retrieveAndRank(vector, filters, user);
 
         // Explain: metadata, availability and why lines.
-        const movies = await this.movieRepository.findByIds(chosen.map(candidate => candidate.movieId));
-        const whyLines = await this.explanationService.explain(movies, moodProfile, input.objective);
-        const results = chosen.flatMap((candidate): IRecommendedMovie[] => {
-            const movie = movies.find(item => item.movieId === candidate.movieId);
+        const items = await this.catalogStore.findByIds(chosen.map(candidate => candidate.itemId));
+        const whyLines = await this.explanationService.explain(items, moodProfile, input.objective);
+        const results = chosen.flatMap((candidate): IRecommendedItem[] => {
+            const item = items.find(found => found.itemId === candidate.itemId);
 
-            if (!movie) {
+            if (!item) {
                 return [];
             }
 
             return [{
-                movieId: movie.movieId,
-                title: movie.title,
-                year: movie.year,
-                runtime: movie.runtime,
-                genres: movie.genres ?? [],
-                posterKey: movie.posterKey,
-                availability: movie.availability?.[country],
-                why: whyLines.get(movie.movieId),
+                itemId: item.itemId,
+                mediaType: item.mediaType,
+                title: item.title,
+                year: item.year,
+                runtime: item.runtime,
+                genres: item.genres ?? [],
+                posterKey: item.posterKey,
+                availability: item.availability?.[country],
+                details: item.details,
+                why: whyLines.get(item.itemId),
             }];
         });
 
@@ -150,7 +154,7 @@ export class RecommendationServiceImpl implements RecommendationService {
             objective: input.objective,
             moodProfile,
             target,
-            resultIds: results.map(result => result.movieId),
+            resultIds: results.map(result => result.itemId),
             resolver: this.moodResolver.name,
             latencyMs,
             ttl: Math.floor(startedAt.getTime() / 1000) + REQUEST_TTL_DAYS * 24 * 60 * 60,
@@ -178,8 +182,8 @@ export class RecommendationServiceImpl implements RecommendationService {
             const candidates = await this.candidateRetriever.retrieve(vector, stage, CANDIDATE_COUNT);
 
             for (const candidate of candidates) {
-                if (!pool.has(candidate.movieId)) {
-                    pool.set(candidate.movieId, candidate);
+                if (!pool.has(candidate.itemId)) {
+                    pool.set(candidate.itemId, candidate);
                 }
             }
 

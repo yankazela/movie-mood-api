@@ -1,4 +1,4 @@
-import { ICreateUserInput, IIdentity, IProfileInput, IUser } from "./domain/types";
+import { ICreateUserInput, IIdentity, IProfileInput, IUpdateUserInput, IUser } from "./domain/types";
 
 export interface UserService {
     /**
@@ -14,4 +14,13 @@ export interface UserService {
      * returned unchanged.
      */
     createProfile(identity: IIdentity, input?: IProfileInput): Promise<IUser>;
+
+    /**
+     * Applies a partial profile update and recomputes fullyOnboarded. `username` is the caller's
+     * Cognito username, used to keep the provider's display name in step when fullName changes.
+     */
+    updateUser(userId: string, username: string | undefined, input: IUpdateUserInput): Promise<IUser>;
+
+    /** The user's profile. Throws NotFoundError when it does not exist. */
+    getUser(userId: string): Promise<IUser>;
 }

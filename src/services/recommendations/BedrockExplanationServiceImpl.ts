@@ -4,24 +4,26 @@ import { z } from "zod";
 import { ExplanationService } from "./ExplanationService";
 import { EObjective, IMoodProfile } from "./domain/types";
 import { DEFAULT_MOOD_MODEL_ID, WHY_STALE_DAYS } from "./config";
-import { IMovie, IWhyEntry } from "../movies/domain/types";
-import { MovieRepository } from "../movies/MovieRepository";
-import { MovieRepositoryImpl } from "../movies/MovieRepositoryImpl";
+import { ICatalogItem, IWhyEntry } from "../catalog/domain/items";
+import { CatalogItemRepository } from "../catalog/store/CatalogItemRepository";
+import { CatalogStore } from "../catalog/store/CatalogStore";
+import { nounFor } from "../media/MediaType";
 
 const WhyLinesSchema = z.object({
     lines: z.array(z.object({
-        movieId: z.string(),
+        itemId: z.string(),
         text: z.string().min(1).describe("One warm, specific sentence of at most 30 words; no spoilers"),
     })),
 });
 
 const SYSTEM_PROMPT = [
-    "You write one sentence per film explaining why it suits someone in the described mood and with the described goal.",
-    "Be warm and specific to the film, at most 30 words, no spoilers, no lists.",
-    "Always respond by calling the why_lines tool exactly once, with one entry for every movieId you were given.",
+    "You write one sentence per title (a film, series, documentary, album or book, as stated) explaining why it",
+    "suits someone in the described mood and with the described goal.",
+    "Be warm and specific to the title, at most 30 words, no spoilers, no lists.",
+    "Always respond by calling the why_lines tool exactly once, with one entry for every itemId you were given.",
 ].join(" ");
 
-/** Cache key in a movie's `why` map. */
+/** Cache key in an item's `why` map. */
 export function whyKey(mood: IMoodProfile, objective: EObjective): string {
     return `${mood.primary_emotion}#${objective}`;
 }
@@ -29,15 +31,15 @@ export function whyKey(mood: IMoodProfile, objective: EObjective): string {
 export class BedrockExplanationServiceImpl implements ExplanationService {
     private readonly client: AnthropicBedrock;
     private readonly modelId: string;
-    private readonly movieRepository: MovieRepository;
+    private readonly catalogStore: CatalogItemRepository;
     private readonly tool: Anthropic.Tool;
 
     constructor(
-        movieRepository: MovieRepository = new MovieRepositoryImpl(),
+        catalogStore: CatalogItemRepository = CatalogStore.fromEnvironment(),
         client: AnthropicBedrock = new AnthropicBedrock(),
         modelId: string = process.env.MOOD_MODEL_ID || DEFAULT_MOOD_MODEL_ID,
     ) {
-        this.movieRepository = movieRepository;
+        this.catalogStore = catalogStore;
         this.client = client;
         this.modelId = modelId;
 
@@ -45,24 +47,24 @@ export class BedrockExplanationServiceImpl implements ExplanationService {
 
         this.tool = {
             name: "why_lines",
-            description: "Record one explanation line per film.",
+            description: "Record one explanation line per title.",
             input_schema: inputSchema as Anthropic.Tool.InputSchema,
         };
     }
 
-    public async explain(movies: IMovie[], mood: IMoodProfile, objective: EObjective): Promise<Map<string, string>> {
+    public async explain(items: ICatalogItem[], mood: IMoodProfile, objective: EObjective): Promise<Map<string, string>> {
         const key = whyKey(mood, objective);
         const staleBefore = Date.now() - WHY_STALE_DAYS * 24 * 60 * 60 * 1000;
         const lines = new Map<string, string>();
-        const missing: IMovie[] = [];
+        const missing: ICatalogItem[] = [];
 
-        for (const movie of movies) {
-            const cached = movie.why?.[key];
+        for (const item of items) {
+            const cached = item.why?.[key];
 
             if (cached && Date.parse(cached.at) >= staleBefore) {
-                lines.set(movie.movieId, cached.text);
+                lines.set(item.itemId, cached.text);
             } else {
-                missing.push(movie);
+                missing.push(item);
             }
         }
 
@@ -74,11 +76,11 @@ export class BedrockExplanationServiceImpl implements ExplanationService {
         const at = new Date().toISOString();
 
         const writes = await Promise.allSettled(
-            [...generated].map(([movieId, text]) => {
-                lines.set(movieId, text);
+            [...generated].map(([itemId, text]) => {
+                lines.set(itemId, text);
                 const entry: IWhyEntry = { text, model: this.modelId, at };
 
-                return this.movieRepository.saveWhy(movieId, key, entry);
+                return this.catalogStore.saveWhy(itemId, key, entry);
             }),
         );
 
@@ -91,19 +93,20 @@ export class BedrockExplanationServiceImpl implements ExplanationService {
         return lines;
     }
 
-    private async generate(movies: IMovie[], mood: IMoodProfile, objective: EObjective): Promise<Map<string, string>> {
+    private async generate(items: ICatalogItem[], mood: IMoodProfile, objective: EObjective): Promise<Map<string, string>> {
         const goal = objective === EObjective.IMPROVE ? "wants to feel a bit lighter" : "wants something that matches the mood";
         const prompt = [
             `The viewer feels ${mood.primary_emotion} and ${goal}.`,
             mood.themes_seek.length ? `They are drawn to: ${mood.themes_seek.join(", ")}.` : "",
             mood.themes_avoid.length ? `They want to avoid: ${mood.themes_avoid.join(", ")}.` : "",
             "",
-            "Films:",
-            ...movies.map(movie => [
-                `- movieId: ${movie.movieId}`,
-                `  title: ${movie.title}${movie.year ? ` (${movie.year})` : ""}`,
-                movie.genres?.length ? `  genres: ${movie.genres.join(", ")}` : "",
-                movie.moodDesc ? `  mood: ${movie.moodDesc}` : "",
+            "Titles:",
+            ...items.map(item => [
+                `- itemId: ${item.itemId}`,
+                `  type: ${nounFor(item.mediaType)}`,
+                `  title: ${item.title}${item.year ? ` (${item.year})` : ""}`,
+                item.genres?.length ? `  genres: ${item.genres.join(", ")}` : "",
+                item.moodDesc ? `  mood: ${item.moodDesc}` : "",
             ].filter(Boolean).join("\n")),
         ].filter(line => line !== undefined).join("\n");
 
@@ -129,8 +132,8 @@ export class BedrockExplanationServiceImpl implements ExplanationService {
             return new Map();
         }
 
-        const wanted = new Set(movies.map(movie => movie.movieId));
+        const wanted = new Set(items.map(item => item.itemId));
 
-        return new Map(parsed.data.lines.filter(line => wanted.has(line.movieId)).map(line => [line.movieId, line.text]));
+        return new Map(parsed.data.lines.filter(line => wanted.has(line.itemId)).map(line => [line.itemId, line.text]));
     }
 }

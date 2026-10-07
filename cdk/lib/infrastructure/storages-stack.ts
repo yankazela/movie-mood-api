@@ -87,12 +87,13 @@ export class StorageStack extends Stack {
 			exportName: `${props.projectName}-MovieMoodBucketName-${props.stage}`,
 		});
 
-		// Movie embeddings live in an S3 Vectors index: float32, cosine distance, and the dimension
-		// count of the Titan v2 embedder. Rebuilt nightly by catalog-refresh, so no retention needed.
+		// Mood embeddings for every medium (films, series, documentaries, later music and books) share
+		// one S3 Vectors index, filtered by mediaType at query time: float32, cosine distance, and the
+		// dimension count of the Titan v2 embedder. Rebuilt nightly by catalog-refresh.
 		const vectorBucketName = `${props.projectName}-vectors-${props.stage}`;
-		const vectorIndexName = 'movies';
+		const vectorIndexName = 'catalog';
 		const vectorBucket = new CfnVectorBucket(this, 'VectorBucket', { vectorBucketName });
-		const vectorIndex = new CfnIndex(this, 'MoviesVectorIndex', {
+		const vectorIndex = new CfnIndex(this, 'CatalogVectorIndex', {
 			vectorBucketName,
 			indexName: vectorIndexName,
 			dataType: 'float32',

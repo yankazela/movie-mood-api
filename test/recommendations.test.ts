@@ -14,8 +14,9 @@ import {
 import { rerank, selectDiverse } from "../src/services/recommendations/ranking";
 import { applyObjective, renderTargetSentence } from "../src/services/recommendations/targeting";
 import { RateLimitError, SafetyError, ValidationError } from "../src/services/common/errors";
-import { MovieRepository } from "../src/services/movies/MovieRepository";
-import { IMovie, IWhyEntry } from "../src/services/movies/domain/types";
+import { ICatalogItem, IWhyEntry } from "../src/services/catalog/domain/items";
+import { CatalogItemRepository } from "../src/services/catalog/store/CatalogItemRepository";
+import { EMediaType } from "../src/services/media/MediaType";
 import { UserRepository } from "../src/services/users/UserRepository";
 import { EIdentityProvider, EVote, IUser } from "../src/services/users/domain/types";
 
@@ -60,8 +61,8 @@ describe("applyObjective", () => {
     });
 });
 
-function candidate(movieId: string, overrides: Partial<ICandidate> = {}): ICandidate {
-    return { movieId, similarity: 0.5, popularity: 100, year: 2020, primaryGenre: "comedy", genres: ["comedy"], ...overrides };
+function candidate(itemId: string, overrides: Partial<ICandidate> = {}): ICandidate {
+    return { itemId, mediaType: EMediaType.MOVIE, similarity: 0.5, popularity: 100, year: 2020, primaryGenre: "comedy", genres: ["comedy"], ...overrides };
 }
 
 describe("rerank and selectDiverse", () => {
@@ -71,13 +72,13 @@ describe("rerank and selectDiverse", () => {
             { genrePrefs: {}, votes: { a: { vote: EVote.DOWN, requestId: "r", at: "t" }, c: { vote: EVote.UP, requestId: "r", at: "t" } } },
         );
 
-        expect(ranked.map(item => item.movieId)).toEqual(["c", "b"]);
+        expect(ranked.map(item => item.itemId)).toEqual(["c", "b"]);
     });
 
     test("prefers higher similarity when everything else is equal", () => {
         const ranked = rerank([candidate("low", { similarity: 0.2 }), candidate("high", { similarity: 0.9 })], { genrePrefs: {}, votes: {} });
 
-        expect(ranked[0].movieId).toBe("high");
+        expect(ranked[0].itemId).toBe("high");
     });
 
     test("genre preferences lift matching titles", () => {
@@ -86,7 +87,7 @@ describe("rerank and selectDiverse", () => {
             { genrePrefs: { drama: 1, comedy: 0 }, votes: {} },
         );
 
-        expect(ranked[0].movieId).toBe("drama");
+        expect(ranked[0].itemId).toBe("drama");
     });
 
     test("limits how many titles share a primary genre", () => {
@@ -98,12 +99,12 @@ describe("rerank and selectDiverse", () => {
 
         const chosen = selectDiverse(ranked, 4, 2);
 
-        expect(chosen.map(item => item.movieId)).toEqual(["c1", "c2", "d1", "d2"]);
+        expect(chosen.map(item => item.itemId)).toEqual(["c1", "c2", "d1", "d2"]);
     });
 });
 
 describe("relaxationStages", () => {
-    const filters: IRetrievalFilters = { country: "ZA", services: ["netflix"], ratingsAllowed: ["PG"], maxRuntimeMin: 120 };
+    const filters: IRetrievalFilters = { mediaTypes: [EMediaType.MOVIE], country: "ZA", services: ["netflix"], ratingsAllowed: ["PG"], maxRuntimeMin: 120 };
 
     test("drops runtime first, then rating", () => {
         expect(relaxationStages(filters)).toEqual([
@@ -114,7 +115,7 @@ describe("relaxationStages", () => {
     });
 
     test("has nothing to relax when no constraints are set", () => {
-        expect(relaxationStages({ country: "ZA", services: [], ratingsAllowed: [] })).toHaveLength(1);
+        expect(relaxationStages({ mediaTypes: [EMediaType.MOVIE], country: "ZA", services: [], ratingsAllowed: [] })).toHaveLength(1);
     });
 });
 
@@ -127,6 +128,10 @@ class FakeUserRepository implements UserRepository {
 
     async findById(): Promise<IUser | null> {
         return this.user;
+    }
+
+    async update(): Promise<IUser> {
+        throw new Error("update is not exercised by the recommendation tests");
     }
 
     async incrementDailyCount(userId: string, today: string): Promise<number> {
@@ -165,28 +170,29 @@ class FakeRetriever implements CandidateRetriever {
     }
 }
 
-class FakeMovieRepository implements MovieRepository {
-    public savedWhy: { movieId: string; key: string; entry: IWhyEntry }[] = [];
+class FakeCatalogStore implements CatalogItemRepository {
+    public savedWhy: { itemId: string; key: string; entry: IWhyEntry }[] = [];
 
-    async findByIds(movieIds: string[]): Promise<IMovie[]> {
-        return movieIds.map(movieId => ({
-            movieId,
-            title: `Title ${movieId}`,
+    async findByIds(itemIds: string[]): Promise<ICatalogItem[]> {
+        return itemIds.map(itemId => ({
+            itemId,
+            mediaType: EMediaType.MOVIE,
+            title: `Title ${itemId}`,
             genres: ["comedy"],
             availability: { ZA: { services: ["netflix"], checkedAt: "2026-10-01T00:00:00Z" } },
         }));
     }
 
-    async saveWhy(movieId: string, key: string, entry: IWhyEntry): Promise<void> {
-        this.savedWhy.push({ movieId, key, entry });
+    async saveWhy(itemId: string, key: string, entry: IWhyEntry): Promise<void> {
+        this.savedWhy.push({ itemId, key, entry });
     }
 
     async upsertCatalog(): Promise<void> {}
 }
 
 class FakeExplanationService implements ExplanationService {
-    async explain(movies: IMovie[]): Promise<Map<string, string>> {
-        return new Map(movies.map(movie => [movie.movieId, `Because ${movie.title}`]));
+    async explain(items: ICatalogItem[]): Promise<Map<string, string>> {
+        return new Map(items.map(item => [item.itemId, `Because ${item.title}`]));
     }
 }
 
@@ -209,6 +215,7 @@ const profile: IUser = {
     votes: {},
     createdAt: "2026-09-01T00:00:00Z",
     dailyCount: 0,
+    fullyOnboarded: true,
 };
 
 function manyCandidates(count: number, prefix = "m"): ICandidate[] {
@@ -225,20 +232,20 @@ function build(overrides: {
     const userRepository = new FakeUserRepository(overrides.user === undefined ? profile : overrides.user);
     const embedder = new FakeEmbedder();
     const retriever = new FakeRetriever(overrides.stages ?? [manyCandidates(40)]);
-    const movieRepository = new FakeMovieRepository();
+    const catalogStore = new FakeCatalogStore();
     const requestRepository = new FakeRequestRepository();
     const service = new RecommendationServiceImpl({
         userRepository,
         moodResolver: new FakeMoodResolver(overrides.mood ?? drained),
         embedder,
         candidateRetriever: retriever,
-        movieRepository,
+        catalogStore,
         explanationService: new FakeExplanationService(),
         requestRepository,
         dailyCap: overrides.dailyCap ?? 20,
     });
 
-    return { service, userRepository, embedder, retriever, movieRepository, requestRepository };
+    return { service, userRepository, embedder, retriever, catalogStore, requestRepository };
 }
 
 describe("RecommendationServiceImpl.recommend", () => {
@@ -250,11 +257,11 @@ describe("RecommendationServiceImpl.recommend", () => {
         expect(result.results).toHaveLength(8);
         expect(result.notice).toBeUndefined();
         expect(result.target).toEqual({ valence: 0.1, arousal: -0.4, themes_seek: ["warmth", "humour", "friendship", "uplift"] });
-        expect(result.results[0]).toMatchObject({ movieId: "m0", title: "Title m0", why: "Because Title m0", availability: { services: ["netflix"] } });
+        expect(result.results[0]).toMatchObject({ itemId: "m0", mediaType: "movie", title: "Title m0", why: "Because Title m0", availability: { services: ["netflix"] } });
         expect(embedder.sentences[0]).toContain("gently positive");
 
         expect(retriever.calls).toHaveLength(1);
-        expect(retriever.calls[0]).toEqual({ country: "ZA", services: ["netflix"], ratingsAllowed: ["PG", "PG-13"], maxRuntimeMin: 120 });
+        expect(retriever.calls[0]).toEqual({ mediaTypes: ["movie", "series", "documentary"], country: "ZA", services: ["netflix"], ratingsAllowed: ["PG", "PG-13"], maxRuntimeMin: 120 });
 
         expect(requestRepository.saved).toHaveLength(1);
         const saved = requestRepository.saved[0];
@@ -305,6 +312,14 @@ describe("RecommendationServiceImpl.recommend", () => {
         await service.recommend({ userId: "sub-1", text: "tired", objective: EObjective.KEEP, country: "us", services: ["hulu"] });
 
         expect(retriever.calls[0]).toMatchObject({ country: "US", services: ["hulu"] });
+    });
+
+    test("narrows retrieval to the media types the caller asked for", async () => {
+        const { service, retriever } = build();
+
+        await service.recommend({ userId: "sub-1", text: "tired", objective: EObjective.KEEP, mediaTypes: [EMediaType.DOCUMENTARY] });
+
+        expect(retriever.calls[0].mediaTypes).toEqual(["documentary"]);
     });
 
     test("relaxes runtime, then rating, when too few titles survive", async () => {

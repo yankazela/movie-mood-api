@@ -1,5 +1,5 @@
 import { GetSecretValueCommand, SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
-import { TmdbClient, TmdbDiscoverPage, TmdbMovieDetails, TmdbProviderRef } from "./TmdbClient";
+import { TmdbClient, TmdbDiscoverPage, TmdbMovieDetails, TmdbProviderKind, TmdbProviderRef, TmdbTvDetails } from "./TmdbClient";
 
 const BASE_URL = "https://api.themoviedb.org/3";
 const IMAGE_BASE_URL = "https://image.tmdb.org/t/p";
@@ -30,24 +30,12 @@ export class TmdbClientImpl implements TmdbClient {
         return new TmdbClientImpl(credential);
     }
 
-    public async discoverMovies(country: string, page: number): Promise<TmdbDiscoverPage> {
-        const data = await this.get<{ page: number; total_pages: number; results: { id: number; title: string }[] }>(
-            "/discover/movie",
-            {
-                watch_region: country,
-                with_watch_monetization_types: "flatrate",
-                sort_by: "popularity.desc",
-                include_adult: "false",
-                include_video: "false",
-                page: String(page),
-            },
-        );
+    public discoverMovies(country: string, page: number): Promise<TmdbDiscoverPage> {
+        return this.discover("/discover/movie", country, page, movie => movie.title ?? "");
+    }
 
-        return {
-            page: data.page,
-            totalPages: data.total_pages,
-            results: data.results.map(movie => ({ id: movie.id, title: movie.title })),
-        };
+    public discoverTv(country: string, page: number): Promise<TmdbDiscoverPage> {
+        return this.discover("/discover/tv", country, page, show => show.name ?? "");
     }
 
     public getMovie(tmdbId: number): Promise<TmdbMovieDetails> {
@@ -56,10 +44,37 @@ export class TmdbClientImpl implements TmdbClient {
         });
     }
 
-    public async listProviders(country: string): Promise<TmdbProviderRef[]> {
-        const data = await this.get<{ results: TmdbProviderRef[] }>("/watch/providers/movie", { watch_region: country });
+    public getTv(tmdbId: number): Promise<TmdbTvDetails> {
+        return this.get<TmdbTvDetails>(`/tv/${tmdbId}`, {
+            append_to_response: "content_ratings,watch/providers,keywords",
+        });
+    }
+
+    public async listProviders(country: string, kind: TmdbProviderKind): Promise<TmdbProviderRef[]> {
+        const data = await this.get<{ results: TmdbProviderRef[] }>(`/watch/providers/${kind}`, { watch_region: country });
 
         return data.results ?? [];
+    }
+
+    private async discover(
+        path: string,
+        country: string,
+        page: number,
+        titleOf: (entry: { title?: string; name?: string }) => string,
+    ): Promise<TmdbDiscoverPage> {
+        const data = await this.get<{ page: number; total_pages: number; results: { id: number; title?: string; name?: string }[] }>(path, {
+            watch_region: country,
+            with_watch_monetization_types: "flatrate",
+            sort_by: "popularity.desc",
+            include_adult: "false",
+            page: String(page),
+        });
+
+        return {
+            page: data.page,
+            totalPages: data.total_pages,
+            results: data.results.map(entry => ({ id: entry.id, title: titleOf(entry) })),
+        };
     }
 
     public imageUrl(path: string, size: string): string {

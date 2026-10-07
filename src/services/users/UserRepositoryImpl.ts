@@ -1,8 +1,8 @@
 import { ConditionalCheckFailedException, DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
-import { UserRepository } from "./UserRepository";
-import { IUser } from "./domain/types";
-import { ProfileAlreadyExistsError } from "../common/errors";
+import { UserFieldChanges, UserRepository } from "./UserRepository";
+import { IUser, IVote } from "./domain/types";
+import { NotFoundError, ProfileAlreadyExistsError } from "../common/errors";
 
 export class UserRepositoryImpl implements UserRepository {
     private readonly documentClient: DynamoDBDocumentClient;
@@ -41,6 +41,49 @@ export class UserRepositoryImpl implements UserRepository {
         }));
 
         return (result.Item as IUser | undefined) ?? null;
+    }
+
+    public async update(userId: string, changes: UserFieldChanges, votes: Record<string, IVote>): Promise<IUser> {
+        const names: Record<string, string> = {};
+        const values: Record<string, unknown> = {};
+        const assignments: string[] = [];
+
+        Object.entries(changes).forEach(([field, value], index) => {
+            if (value === undefined) return;
+            names[`#f${index}`] = field;
+            values[`:f${index}`] = value;
+            assignments.push(`#f${index} = :f${index}`);
+        });
+
+        // One SET per vote so concurrent votes on different items never overwrite each other.
+        Object.entries(votes).forEach(([itemId, vote], index) => {
+            names["#votes"] = "votes";
+            names[`#v${index}`] = itemId;
+            values[`:v${index}`] = vote;
+            assignments.push(`#votes.#v${index} = :v${index}`);
+        });
+
+        names["#userId"] = "userId";
+
+        try {
+            const result = await this.documentClient.send(new UpdateCommand({
+                TableName: this.tableName,
+                Key: { userId },
+                UpdateExpression: `SET ${assignments.join(", ")}`,
+                ConditionExpression: "attribute_exists(#userId)",
+                ExpressionAttributeNames: names,
+                ExpressionAttributeValues: values,
+                ReturnValues: "ALL_NEW",
+            }));
+
+            return result.Attributes as IUser;
+        } catch (error) {
+            if (error instanceof ConditionalCheckFailedException) {
+                throw new NotFoundError("No profile found for this user. Complete sign-up first.");
+            }
+
+            throw error;
+        }
     }
 
     public async incrementDailyCount(userId: string, today: string): Promise<number> {

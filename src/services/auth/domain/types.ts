@@ -15,6 +15,8 @@ export interface IAuthTokens {
 
 export interface IAuthenticated {
     outcome: "authenticated";
+    /** The Cognito `sub`, which is also the Users table key. */
+    userId: string;
     tokens: IAuthTokens;
 }
 

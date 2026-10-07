@@ -5,7 +5,9 @@ import {
     IsISO31661Alpha2,
     IsObject,
     IsOptional,
+    IsNotEmpty,
     IsString,
+    MaxLength,
     MinLength,
 } from "class-validator";
 import { ValidationService } from "@novha/cdk-lib";
@@ -15,6 +17,11 @@ import { parseRequest } from "../../common/RequestParser";
 export class CreateUserRequest extends ValidationService implements ICreateUserInput {
     @IsEmail()
     email: string;
+
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(100)
+    fullName: string;
 
     @IsString()
     @IsISO31661Alpha2()

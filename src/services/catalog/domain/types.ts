@@ -1,6 +1,8 @@
 /** Progress of the current catalog run, stored in the Config table under CATALOG_CURSOR. */
 export interface ICatalogCursor {
     runId: string;
+    /** Id of the CatalogSource being walked. */
+    source: string;
     country: string;
     page: number;
     startedAt: string;
@@ -34,7 +36,8 @@ export interface IRefreshResult {
     /** `paused` means the time budget ran out with pages left; the cursor is saved for the next run. */
     status: "completed" | "paused";
     runId: string;
+    source: string;
     country: string;
     page: number;
-    moviesProcessed: number;
+    itemsProcessed: number;
 }

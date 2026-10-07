@@ -4,12 +4,16 @@ import {
     CognitoIdentityProviderClient,
     NotAuthorizedException,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { AuthServiceImpl } from "../src/services/auth/AuthServiceImpl";
-import { EAuthChallenge } from "../src/services/auth/domain/types";
+import { AuthService } from "../src/services/auth/AuthService";
+import { AuthServiceImpl, subjectOf } from "../src/services/auth/AuthServiceImpl";
+import { SessionServiceImpl } from "../src/services/auth/SessionServiceImpl";
+import { UserService } from "../src/services/users/UserService";
+import { IUser } from "../src/services/users/domain/types";
+import { EAuthChallenge, ISignInResult } from "../src/services/auth/domain/types";
 import { CompleteNewPasswordRequest } from "../src/services/auth/dto/CompleteNewPasswordRequest";
 import { SignInRequest } from "../src/services/auth/dto/SignInRequest";
 import { parseRequest } from "../src/services/common/RequestParser";
-import { UnauthorizedError, ValidationError } from "../src/services/common/errors";
+import { NotFoundError, UnauthorizedError, ValidationError } from "../src/services/common/errors";
 
 /** Stands in for the Cognito SDK client: records every command and answers with `respond`. */
 class FakeCognitoClient {
@@ -23,7 +27,14 @@ class FakeCognitoClient {
     }
 }
 
-const tokens = { IdToken: "id", AccessToken: "access", RefreshToken: "refresh", ExpiresIn: 3600, TokenType: "Bearer" };
+/** An unsigned JWT-shaped token carrying the given sub; enough for the service to read the claim. */
+function idTokenFor(sub: string): string {
+    const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString("base64url");
+    return `${encode({ alg: "none" })}.${encode({ sub, email: "jane@example.com" })}.sig`;
+}
+
+const idToken = idTokenFor("sub-123");
+const tokens = { IdToken: idToken, AccessToken: "access", RefreshToken: "refresh", ExpiresIn: 3600, TokenType: "Bearer" };
 
 function serviceWith(respond: (command: any) => any): { service: AuthServiceImpl; client: FakeCognitoClient } {
     const client = new FakeCognitoClient(respond);
@@ -46,7 +57,8 @@ describe("AuthServiceImpl.signIn", () => {
         });
         expect(result).toEqual({
             outcome: "authenticated",
-            tokens: { idToken: "id", accessToken: "access", refreshToken: "refresh", expiresIn: 3600, tokenType: "Bearer" },
+            userId: "sub-123",
+            tokens: { idToken, accessToken: "access", refreshToken: "refresh", expiresIn: 3600, tokenType: "Bearer" },
         });
     });
 
@@ -104,5 +116,50 @@ describe("auth request DTOs", () => {
             .rejects.toThrow(/newPassword/);
         await expect(parseRequest(JSON.stringify({ email: "jane@example.com", newPassword: "LongEnough1!" }), CompleteNewPasswordRequest))
             .rejects.toThrow(/session/);
+    });
+});
+
+describe("SessionServiceImpl", () => {
+    const user = { userId: "sub-123", email: "jane@example.com" } as IUser;
+
+    function sessionWith(signInResult: ISignInResult, getUser: (userId: string) => Promise<IUser>) {
+        const auth = { signIn: async () => signInResult, completeNewPassword: async () => signInResult } as unknown as AuthService;
+        const users = { getUser } as unknown as UserService;
+        return new SessionServiceImpl(auth, users);
+    }
+
+    const authenticated: ISignInResult = {
+        outcome: "authenticated",
+        userId: "sub-123",
+        tokens: { idToken, accessToken: "access", expiresIn: 3600, tokenType: "Bearer" },
+    };
+
+    test("returns the profile alongside the tokens on sign-in and on new-password completion", async () => {
+        const looked: string[] = [];
+        const session = sessionWith(authenticated, async userId => { looked.push(userId); return user; });
+
+        expect(await session.signIn({ email: "jane@example.com", password: "pw" })).toMatchObject({ outcome: "authenticated", userId: "sub-123", user });
+        expect(await session.completeNewPassword({ email: "jane@example.com", newPassword: "N3w!Password", session: "s" })).toMatchObject({ user });
+        expect(looked).toEqual(["sub-123", "sub-123"]);
+    });
+
+    test("passes a challenge through without looking up a profile", async () => {
+        const challenge: ISignInResult = { outcome: "challenge", challenge: EAuthChallenge.NEW_PASSWORD_REQUIRED, session: "s" };
+        const session = sessionWith(challenge, async () => { throw new Error("should not be called"); });
+
+        expect(await session.signIn({ email: "jane@example.com", password: "Temp" })).toEqual(challenge);
+    });
+
+    test("still signs the user in, with a null profile, when the profile is missing", async () => {
+        const session = sessionWith(authenticated, async () => { throw new NotFoundError("missing"); });
+
+        expect(await session.signIn({ email: "jane@example.com", password: "pw" })).toMatchObject({ outcome: "authenticated", user: null });
+    });
+});
+
+describe("subjectOf", () => {
+    test("reads sub from an ID token and rejects tokens without one", () => {
+        expect(subjectOf(idTokenFor("abc"))).toBe("abc");
+        expect(() => subjectOf("not-a-jwt")).toThrow(/sub claim/);
     });
 });

@@ -5,7 +5,7 @@ import { RANK_WEIGHTS, THUMBS_UP_BONUS } from "./config";
 export interface IPersonalSignals {
     /** Genre name to preference weight, 0..1. */
     genrePrefs: Record<string, number>;
-    /** Movie id to the user's thumbs vote. */
+    /** Item id to the user's thumbs vote. */
     votes: Record<string, IVote>;
 }
 
@@ -14,7 +14,7 @@ export interface IPersonalSignals {
  * user thumbed down, and returns them best first.
  */
 export function rerank(candidates: ICandidate[], personal: IPersonalSignals, now: Date = new Date()): IRankedCandidate[] {
-    const kept = candidates.filter(candidate => personal.votes[candidate.movieId]?.vote !== EVote.DOWN);
+    const kept = candidates.filter(candidate => personal.votes[candidate.itemId]?.vote !== EVote.DOWN);
 
     if (kept.length === 0) {
         return [];
@@ -85,7 +85,7 @@ function personalSignal(candidate: ICandidate, personal: IPersonalSignals): numb
         ? weights.reduce((sum, weight) => sum + weight, 0) / weights.length
         : 0.5;
 
-    const thumbsUp = personal.votes[candidate.movieId]?.vote === EVote.UP ? THUMBS_UP_BONUS : 0;
+    const thumbsUp = personal.votes[candidate.itemId]?.vote === EVote.UP ? THUMBS_UP_BONUS : 0;
 
     return clamp01(genrePrior + thumbsUp);
 }

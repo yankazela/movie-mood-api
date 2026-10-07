@@ -1,4 +1,5 @@
-import { IAvailability } from "../../movies/domain/types";
+import { IAvailability } from "../../catalog/domain/items";
+import { EMediaType } from "../../media/MediaType";
 
 export enum EObjective {
     /** Match the current mood. */
@@ -39,6 +40,8 @@ export interface ITarget {
 }
 
 export interface IRetrievalFilters {
+    /** Which media the user wants back; defaults to every active type. */
+    mediaTypes: EMediaType[];
     country: string;
     /** Streaming services the user has; empty means any service available in the country. */
     services: string[];
@@ -47,9 +50,10 @@ export interface IRetrievalFilters {
     maxRuntimeMin?: number;
 }
 
-/** A movie as returned by the vector index, before re-ranking. */
+/** An item as returned by the vector index, before re-ranking. */
 export interface ICandidate {
-    movieId: string;
+    itemId: string;
+    mediaType: EMediaType;
     /** Index similarity score; only its order within one result set matters. */
     similarity: number;
     popularity: number;
@@ -84,14 +88,17 @@ export interface IRecommendInput {
     userId: string;
     text: string;
     objective: EObjective;
+    /** Media to recommend; defaults to every active type. */
+    mediaTypes?: EMediaType[];
     inputType?: EInputType;
     /** From the JWT when present; otherwise the profile's value is used. */
     country?: string;
     services?: string[];
 }
 
-export interface IRecommendedMovie {
-    movieId: string;
+export interface IRecommendedItem {
+    itemId: string;
+    mediaType: EMediaType;
     title: string;
     year?: number;
     runtime?: number;
@@ -99,6 +106,8 @@ export interface IRecommendedMovie {
     posterKey?: string;
     /** Availability in the user's country. */
     availability?: IAvailability;
+    /** Media-specific fields, e.g. episode and season counts for a series. */
+    details?: Record<string, unknown>;
     why?: string;
 }
 
@@ -106,7 +115,7 @@ export interface IRecommendationResult {
     requestId: string;
     moodProfile: IMoodProfile;
     target: ITarget;
-    results: IRecommendedMovie[];
+    results: IRecommendedItem[];
     /** Set when fewer than the usual number of titles survived even after relaxing constraints. */
     notice?: "few_matches";
     latencyMs: number;

@@ -33,7 +33,7 @@ export class MovieMoodApiStack extends Stack {
 			},
 			defaultCorsPreflightOptions: {
                 allowOrigins: ['*'],
-                allowMethods: ['GET', 'POST', 'PUT', 'DELETE'],
+                allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
                 allowHeaders: ['Content-Type', 'X-Amz-Date', 'Authorization', 'X-Api-Key', 'X-Amz-Security-Token'],
             },
         });
@@ -125,16 +125,35 @@ export class MovieMoodApiStack extends Stack {
 			"cognito-idp:AdminDeleteUser"
 		);
 
-		baseResource
-			.addResource('user')
-			.addMethod(
-				'POST',
-				new LambdaIntegration(createUserHandler)
-			);
+		// API Gateway validates the Cognito JWT on authenticated routes; handlers read the caller's
+		// identity from the verified claims rather than from the body.
+		const authorizer = new CognitoUserPoolsAuthorizer(this, "CognitoAuthorizer", {
+			cognitoUserPools: [userPool],
+		});
+
+		const updateUserHandler = this.createHandler(
+            "index.update",
+            path.join(buildFolder, "user"),
+            `${props.projectName}-update-user-${props.stage}`,
+            {
+                USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
+                USER_POOL_ID: userPool.userPoolId,
+            }
+		);
+		usersTable.grantReadWriteData(updateUserHandler);
+		userPool.grant(updateUserHandler, "cognito-idp:AdminUpdateUserAttributes");
+
+		const userResource = baseResource.addResource('user');
+		userResource.addMethod('POST', new LambdaIntegration(createUserHandler));
+		userResource.addMethod('PATCH', new LambdaIntegration(updateUserHandler), {
+			authorizer,
+			authorizationType: AuthorizationType.COGNITO,
+		});
 
 		// Email/password sign-in. Google/Apple users sign in through Cognito's hosted UI instead.
 		// Both handlers come from the same bundle (src/api/auth).
 		const authEnvironment = {
+			USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
 			USER_POOL_ID: userPool.userPoolId,
 			USER_POOL_CLIENT_ID: Fn.importValue(`${props.projectName}-UserPoolClientId-${props.stage}`),
 		};
@@ -152,6 +171,9 @@ export class MovieMoodApiStack extends Stack {
 		);
 		userPool.grant(signInHandler, "cognito-idp:AdminInitiateAuth");
 		userPool.grant(newPasswordHandler, "cognito-idp:AdminRespondToAuthChallenge");
+		// Both return the signed-in user's profile alongside the tokens.
+		usersTable.grantReadData(signInHandler);
+		usersTable.grantReadData(newPasswordHandler);
 
 		const authResource = baseResource.addResource('auth');
 		authResource
@@ -161,11 +183,7 @@ export class MovieMoodApiStack extends Stack {
 			.addResource('new-password')
 			.addMethod('POST', new LambdaIntegration(newPasswordHandler));
 
-		// Recommendations, text path. API Gateway validates the Cognito JWT; the handler reads the
-		// caller's identity from the verified claims rather than from the body.
-		const authorizer = new CognitoUserPoolsAuthorizer(this, "CognitoAuthorizer", {
-			cognitoUserPools: [userPool],
-		});
+		// Recommendations, text path, behind the same Cognito authorizer.
 		const requestsTable = Table.fromTableArn(
 			this,
 			"RequestsTable",

@@ -1,14 +1,16 @@
 import { CandidateRetriever } from "./CandidateRetriever";
 import { ICandidate, IRetrievalFilters } from "./domain/types";
+import { EMediaType, isMediaType } from "../media/MediaType";
 import { VectorFilter, VectorIndex, VectorMetadata } from "../vectors/VectorIndex";
 
 /**
- * Metadata written for every movie vector by catalog-refresh, and read back here:
- *   movieId       string      e.g. "tmdb:508442"
- *   countries     string[]    country codes where the title streams on at least one service
+ * Metadata written for every vector by catalog-refresh, and read back here:
+ *   itemId        string      e.g. "movie:tmdb-movie:508442"
+ *   mediaType     string      "movie" | "series" | "documentary" | "music" | "book"
+ *   countries     string[]    country codes where the item is available on at least one service
  *   availableOn   string[]    "<country>:<service slug>" tokens, e.g. "ZA:netflix"
- *   ratings       string[]    "<country>:<certification>" tokens, e.g. "ZA:13"
- *   runtime       number      minutes
+ *   ratings       string[]    "<country>:<rating>" tokens, e.g. "ZA:13"
+ *   runtime       number      minutes (film runtime, episode length, album play time)
  *   popularity    number
  *   year          number
  *   primaryGenre  string
@@ -24,10 +26,16 @@ export class S3VectorsCandidateRetrieverImpl implements CandidateRetriever {
     public async retrieve(vector: number[], filters: IRetrievalFilters, count: number): Promise<ICandidate[]> {
         const matches = await this.index.query(vector, buildCandidateFilter(filters), count);
 
-        return matches
-            .map(match => ({ match, movieId: stringField(match.metadata, "movieId") ?? match.key }))
-            .map(({ match, movieId }) => ({
-                movieId,
+        return matches.flatMap((match): ICandidate[] => {
+            const mediaType = match.metadata.mediaType;
+
+            if (!isMediaType(mediaType)) {
+                return [];
+            }
+
+            return [{
+                itemId: stringField(match.metadata, "itemId") ?? match.key,
+                mediaType,
                 // Cosine distance runs from 0 (identical) to 2 (opposite); flip it so bigger is better.
                 similarity: 1 - match.distance,
                 popularity: numberField(match.metadata, "popularity") ?? 0,
@@ -35,13 +43,14 @@ export class S3VectorsCandidateRetrieverImpl implements CandidateRetriever {
                 primaryGenre: stringField(match.metadata, "primaryGenre"),
                 genres: stringListField(match.metadata, "genres"),
                 runtime: numberField(match.metadata, "runtime"),
-            }));
+            }];
+        });
     }
 }
 
 /** Translates the user's constraints into the vector store's filter syntax. */
 export function buildCandidateFilter(filters: IRetrievalFilters): VectorFilter {
-    const clauses: VectorFilter[] = [];
+    const clauses: VectorFilter[] = [{ mediaType: { $in: filters.mediaTypes as EMediaType[] } }];
 
     if (filters.services.length > 0) {
         clauses.push({ availableOn: { $in: filters.services.map(service => `${filters.country}:${service}`) } });
@@ -57,7 +66,7 @@ export function buildCandidateFilter(filters: IRetrievalFilters): VectorFilter {
         clauses.push({ runtime: { $lte: filters.maxRuntimeMin } });
     }
 
-    return clauses.length === 1 ? clauses[0] : { $and: clauses };
+    return { $and: clauses };
 }
 
 function stringField(metadata: VectorMetadata, key: string): string | undefined {

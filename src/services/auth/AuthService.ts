@@ -7,9 +7,12 @@ export interface AuthService {
      * permanent password and no invitation is sent; otherwise the provider sends an
      * invitation with a temporary password.
      */
-    createUser(email: string, password?: string): Promise<IIdentity>;
+    createUser(email: string, fullName: string, password?: string): Promise<IIdentity>;
 
     deleteUser(username: string): Promise<void>;
+
+    /** Updates the display name held by the auth provider, so new tokens carry it. */
+    updateName(username: string, fullName: string): Promise<void>;
 
     /**
      * Email/password sign-in. Resolves to tokens, or to a pending challenge the caller

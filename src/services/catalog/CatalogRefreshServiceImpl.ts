@@ -1,24 +1,19 @@
 import { ulid } from "ulid";
 import { CatalogRefreshService } from "./CatalogRefreshService";
-import { IMoodSource, MoodDescriber } from "./MoodDescriber";
+import { MoodDescriber } from "./MoodDescriber";
 import { BedrockMoodDescriberImpl } from "./BedrockMoodDescriberImpl";
-import { TmdbClient, TmdbMovieDetails, TmdbMovieSummary, TmdbProviderRef } from "./TmdbClient";
 import { TmdbClientImpl } from "./TmdbClientImpl";
+import { CatalogSource, ICatalogDraft } from "./sources/CatalogSource";
+import { TmdbMovieSource } from "./sources/TmdbMovieSource";
+import { TmdbTvSource } from "./sources/TmdbTvSource";
+import { CatalogItemRepository } from "./store/CatalogItemRepository";
+import { CatalogStore } from "./store/CatalogStore";
+import { ICatalogItemDraft } from "./domain/items";
 import { ICatalogCursor, IProvider, IRefreshOptions, IRefreshResult } from "./domain/types";
-import {
-    CURSOR_CONFIG_KEY,
-    DEEP_LINK_TEMPLATES,
-    POSTER_SIZE,
-    PROVIDER_LOGO_SIZE,
-    TMDB_CONCURRENCY,
-    countriesFromEnvironment,
-} from "./config";
+import { CURSOR_CONFIG_KEY, TMDB_CONCURRENCY, countriesFromEnvironment } from "./config";
 import { mapWithConcurrency } from "../common/concurrency";
 import { ConfigRepository } from "../config/ConfigRepository";
 import { ConfigRepositoryImpl } from "../config/ConfigRepositoryImpl";
-import { IAvailability, IMovie } from "../movies/domain/types";
-import { MovieRepository } from "../movies/MovieRepository";
-import { MovieRepositoryImpl } from "../movies/MovieRepositoryImpl";
 import { ProviderRepository } from "../providers/ProviderRepository";
 import { ProviderRepositoryImpl } from "../providers/ProviderRepositoryImpl";
 import { Embedder } from "../recommendations/Embedder";
@@ -29,29 +24,42 @@ import { IVectorRecord, VectorIndex, VectorMetadata } from "../vectors/VectorInd
 import { S3VectorsIndexImpl } from "../vectors/S3VectorsIndexImpl";
 
 export interface CatalogDependencies {
-    tmdb: TmdbClient;
+    /** Sources are walked in order; each one is a medium (or part of one). */
+    sources: CatalogSource[];
     moodDescriber: MoodDescriber;
     embedder: Embedder;
     vectorIndex: VectorIndex;
-    movieRepository: MovieRepository;
+    catalogStore: CatalogItemRepository;
     providerRepository: ProviderRepository;
     configRepository: ConfigRepository;
     assetStore: AssetStore;
-    /** Countries to catalog, in order. */
+    /** Countries to catalogue, in order. */
     countries: string[];
     now?: () => Date;
 }
 
+/**
+ * Walks every registered CatalogSource for every configured country, page by page. The steps
+ * after fetching are the same for any medium: describe the mood once, embed it, store the item in
+ * its family's table and the vector in the shared index with filterable metadata.
+ */
 export class CatalogRefreshServiceImpl implements CatalogRefreshService {
     private readonly deps: CatalogDependencies;
     private readonly now: () => Date;
 
     constructor(deps: CatalogDependencies) {
+        if (deps.sources.length === 0) {
+            throw new Error("At least one catalogue source is required");
+        }
+
         this.deps = deps;
         this.now = deps.now ?? (() => new Date());
     }
 
-    /** Wires the production collaborators from the environment. Async because the TMDB key is a secret. */
+    /**
+     * Wires the production collaborators from the environment. To add a medium, construct its
+     * source here; nothing else in the job changes.
+     */
     public static async create(): Promise<CatalogRefreshServiceImpl> {
         const vectorIndex = S3VectorsIndexImpl.fromEnvironment();
 
@@ -59,15 +67,18 @@ export class CatalogRefreshServiceImpl implements CatalogRefreshService {
             throw new Error("VECTOR_BUCKET_NAME and VECTOR_INDEX_NAME must be set");
         }
 
+        const assetStore = new S3AssetStoreImpl();
+        const tmdb = await TmdbClientImpl.fromSecret();
+
         return new CatalogRefreshServiceImpl({
-            tmdb: await TmdbClientImpl.fromSecret(),
+            sources: [new TmdbMovieSource(tmdb, assetStore), new TmdbTvSource(tmdb, assetStore)],
             moodDescriber: new BedrockMoodDescriberImpl(),
             embedder: new TitanEmbedderImpl(),
             vectorIndex,
-            movieRepository: new MovieRepositoryImpl(),
+            catalogStore: CatalogStore.fromEnvironment(),
             providerRepository: new ProviderRepositoryImpl(),
             configRepository: new ConfigRepositoryImpl(),
-            assetStore: new S3AssetStoreImpl(),
+            assetStore,
             countries: countriesFromEnvironment(),
         });
     }
@@ -75,139 +86,166 @@ export class CatalogRefreshServiceImpl implements CatalogRefreshService {
     public async refresh(options: IRefreshOptions): Promise<IRefreshResult> {
         const deadline = this.now().getTime() + options.timeBudgetMs;
         let cursor = await this.loadOrStartCursor();
-        let moviesProcessed = 0;
+        let itemsProcessed = 0;
 
         while (true) {
             if (this.now().getTime() >= deadline) {
                 await this.saveCursor(cursor);
-                return { status: "paused", runId: cursor.runId, country: cursor.country, page: cursor.page, moviesProcessed };
+                return this.result("paused", cursor, itemsProcessed);
             }
 
-            if (cursor.page === 1) {
+            const source = this.sourceById(cursor.source);
+
+            // Providers are refreshed once per country per run, as the first source starts it.
+            if (cursor.page === 1 && source === this.deps.sources[0]) {
                 await this.refreshProviders(cursor.country);
             }
 
-            const page = await this.deps.tmdb.discoverMovies(cursor.country, cursor.page);
-            moviesProcessed += await this.processPage(page.results);
+            const page = await source.discover(cursor.country, cursor.page);
+            itemsProcessed += await this.processPage(source, page.refs);
 
             const lastPage = Math.max(1, Math.min(page.totalPages, options.maxPagesPerCountry));
+            const next = this.advance(cursor, lastPage);
 
-            if (cursor.page < lastPage) {
-                cursor = { ...cursor, page: cursor.page + 1 };
-            } else {
-                const nextCountry = this.deps.countries[this.deps.countries.indexOf(cursor.country) + 1];
-
-                if (nextCountry) {
-                    cursor = { ...cursor, country: nextCountry, page: 1 };
-                } else {
-                    cursor = { ...cursor, completedAt: this.now().toISOString() };
-                    await this.saveCursor(cursor);
-                    return { status: "completed", runId: cursor.runId, country: cursor.country, page: cursor.page, moviesProcessed };
-                }
+            if (!next) {
+                cursor = { ...cursor, completedAt: this.now().toISOString() };
+                await this.saveCursor(cursor);
+                return this.result("completed", cursor, itemsProcessed);
             }
 
+            cursor = next;
             await this.saveCursor(cursor);
         }
     }
 
-    /** Resumes an unfinished run, otherwise starts a new one at the first country's first page. */
-    private async loadOrStartCursor(): Promise<ICatalogCursor> {
-        const stored = (await this.deps.configRepository.get(CURSOR_CONFIG_KEY)) as Partial<ICatalogCursor> | null;
-
-        if (stored?.runId && stored.country && stored.page && !stored.completedAt && this.deps.countries.includes(stored.country)) {
-            return { runId: stored.runId, country: stored.country, page: stored.page, startedAt: stored.startedAt ?? this.now().toISOString() };
+    /** Next page, else next country, else next source, else null when the run is complete. */
+    private advance(cursor: ICatalogCursor, lastPage: number): ICatalogCursor | null {
+        if (cursor.page < lastPage) {
+            return { ...cursor, page: cursor.page + 1 };
         }
 
-        return { runId: ulid(this.now().getTime()), country: this.deps.countries[0], page: 1, startedAt: this.now().toISOString() };
+        const nextCountry = this.deps.countries[this.deps.countries.indexOf(cursor.country) + 1];
+
+        if (nextCountry) {
+            return { ...cursor, country: nextCountry, page: 1 };
+        }
+
+        const sourceIds = this.deps.sources.map(source => source.id);
+        const nextSource = sourceIds[sourceIds.indexOf(cursor.source) + 1];
+
+        if (nextSource) {
+            return { ...cursor, source: nextSource, country: this.deps.countries[0], page: 1 };
+        }
+
+        return null;
+    }
+
+    /** Resumes an unfinished run, otherwise starts a new one at the first source, country and page. */
+    private async loadOrStartCursor(): Promise<ICatalogCursor> {
+        const stored = (await this.deps.configRepository.get(CURSOR_CONFIG_KEY)) as Partial<ICatalogCursor> | null;
+        const resumable = stored?.runId && stored.source && stored.country && stored.page && !stored.completedAt
+            && this.deps.sources.some(source => source.id === stored.source)
+            && this.deps.countries.includes(stored.country);
+
+        if (resumable) {
+            return {
+                runId: stored.runId as string,
+                source: stored.source as string,
+                country: stored.country as string,
+                page: stored.page as number,
+                startedAt: stored.startedAt ?? this.now().toISOString(),
+            };
+        }
+
+        return {
+            runId: ulid(this.now().getTime()),
+            source: this.deps.sources[0].id,
+            country: this.deps.countries[0],
+            page: 1,
+            startedAt: this.now().toISOString(),
+        };
     }
 
     private saveCursor(cursor: ICatalogCursor): Promise<void> {
         return this.deps.configRepository.put(CURSOR_CONFIG_KEY, { ...cursor });
     }
 
-    private async refreshProviders(country: string): Promise<void> {
-        const refs = await this.deps.tmdb.listProviders(country);
-        const sorted = [...refs].sort((a, b) => (a.display_priority ?? 999) - (b.display_priority ?? 999));
-
-        const providers = await mapWithConcurrency(sorted, TMDB_CONCURRENCY, async (ref): Promise<IProvider> => {
-            const slug = slugify(ref.provider_name);
-
-            return {
-                id: ref.provider_id,
-                slug,
-                name: ref.provider_name,
-                logoKey: await this.storeImage(ref.logo_path, PROVIDER_LOGO_SIZE, `providers/${ref.provider_id}.jpg`),
-                deepLinkTemplate: DEEP_LINK_TEMPLATES[slug] ?? `https://www.themoviedb.org/movie/{tmdbId}/watch?locale=${country}`,
-            };
-        });
-
-        await this.deps.providerRepository.save({ country, providers, refreshedAt: this.now().toISOString() });
+    private result(status: IRefreshResult["status"], cursor: ICatalogCursor, itemsProcessed: number): IRefreshResult {
+        return { status, runId: cursor.runId, source: cursor.source, country: cursor.country, page: cursor.page, itemsProcessed };
     }
 
-    /** Handles one discover page: details, mood descriptions, posters, embeddings, table and index writes. */
-    private async processPage(summaries: TmdbMovieSummary[]): Promise<number> {
-        const details = (await mapWithConcurrency(summaries, TMDB_CONCURRENCY, async summary => {
+    private sourceById(id: string): CatalogSource {
+        const source = this.deps.sources.find(candidate => candidate.id === id);
+
+        if (!source) {
+            throw new Error(`Unknown catalogue source ${id}`);
+        }
+
+        return source;
+    }
+
+    /** Union of every source's providers for the country, keyed by provider id. */
+    private async refreshProviders(country: string): Promise<void> {
+        const byId = new Map<number, IProvider>();
+
+        for (const source of this.deps.sources) {
+            if (!source.listProviders) {
+                continue;
+            }
+
+            for (const provider of await source.listProviders(country)) {
+                if (!byId.has(provider.id)) {
+                    byId.set(provider.id, provider);
+                }
+            }
+        }
+
+        await this.deps.providerRepository.save({ country, providers: [...byId.values()], refreshedAt: this.now().toISOString() });
+    }
+
+    /** Handles one page from one source: fetch, describe, poster, embed, store, index. */
+    private async processPage(source: CatalogSource, refs: { sourceId: string }[]): Promise<number> {
+        const checkedAt = this.now().toISOString();
+
+        const drafts = (await mapWithConcurrency(refs, TMDB_CONCURRENCY, async ref => {
             try {
-                return await this.deps.tmdb.getMovie(summary.id);
+                return await source.fetch(ref, this.deps.countries, checkedAt);
             } catch (error: any) {
-                console.error(`Skipping TMDB movie ${summary.id}: ${error.message}`);
+                console.error(`Skipping ${source.id} item ${ref.sourceId}: ${error.message}`);
                 return null;
             }
-        })).filter((movie): movie is TmdbMovieDetails => movie !== null);
+        })).filter((draft): draft is ICatalogDraft => draft !== null);
 
         const existing = new Map(
-            (await this.deps.movieRepository.findByIds(details.map(movie => movieIdFor(movie.id)))).map(movie => [movie.movieId, movie]),
+            (await this.deps.catalogStore.findByIds(drafts.map(draft => draft.item.itemId))).map(item => [item.itemId, item]),
         );
 
-        // Mood descriptions are the expensive step, so only films that lack one get described.
-        const needingDescription = details
-            .filter(movie => !existing.get(movieIdFor(movie.id))?.moodDesc)
-            .map((movie): IMoodSource => ({
-                movieId: movieIdFor(movie.id),
-                title: movie.title,
-                year: yearOf(movie),
-                genres: genreNames(movie),
-                overview: movie.overview,
-                keywords: movie.keywords?.keywords.map(keyword => keyword.name) ?? [],
-            }));
+        // Mood descriptions are the expensive step, so only items that lack one get described.
+        const needingDescription = drafts.filter(draft => !existing.get(draft.item.itemId)?.moodDesc).map(draft => draft.moodSource);
         const described = needingDescription.length > 0 ? await this.deps.moodDescriber.describe(needingDescription) : new Map<string, string>();
 
-        const checkedAt = this.now().toISOString();
         const records: IVectorRecord[] = [];
         const unavailable: string[] = [];
 
-        await mapWithConcurrency(details, TMDB_CONCURRENCY, async movie => {
-            const movieId = movieIdFor(movie.id);
-            const previous = existing.get(movieId);
-            const moodDesc = previous?.moodDesc ?? described.get(movieId);
-            const availability = this.availabilityFor(movie, checkedAt);
-            const countries = Object.keys(availability);
-
-            const item: Omit<IMovie, "why"> = {
-                movieId,
-                title: movie.title,
-                year: yearOf(movie),
-                runtime: movie.runtime ?? undefined,
-                genres: genreNames(movie),
-                primaryGenre: genreNames(movie)[0],
-                rating: this.ratingsFor(movie),
-                popularity: movie.popularity,
-                voteCount: movie.vote_count,
-                posterKey: (await this.storeImage(movie.poster_path, POSTER_SIZE, `posters/tmdb-${movie.id}.jpg`)) ?? previous?.posterKey,
-                moodDesc,
+        await mapWithConcurrency(drafts, TMDB_CONCURRENCY, async draft => {
+            const previous = existing.get(draft.item.itemId);
+            const item: ICatalogItemDraft = {
+                ...draft.item,
+                moodDesc: previous?.moodDesc ?? described.get(draft.item.itemId),
                 embeddedAt: previous?.embeddedAt,
-                availability,
+                posterKey: (await this.storeImage(draft)) ?? previous?.posterKey,
             };
+            const countries = Object.keys(item.availability ?? {});
 
-            if (moodDesc && countries.length > 0) {
-                const vector = await this.deps.embedder.embed(embeddingTextFor(item, movie));
-                records.push({ key: movieId, vector, metadata: vectorMetadataFor(item, countries) });
+            if (item.moodDesc && countries.length > 0) {
+                const vector = await this.deps.embedder.embed(embeddingTextFor(item, draft.moodSource.keywords));
+                records.push({ key: item.itemId, vector, metadata: vectorMetadataFor(item, countries) });
                 item.embeddedAt = checkedAt;
             } else {
-                unavailable.push(movieId);
+                unavailable.push(item.itemId);
             }
 
-            await this.deps.movieRepository.upsertCatalog(item);
+            await this.deps.catalogStore.upsertCatalog(item);
         });
 
         if (records.length > 0) {
@@ -216,101 +254,47 @@ export class CatalogRefreshServiceImpl implements CatalogRefreshService {
 
         if (unavailable.length > 0) {
             await this.deps.vectorIndex.delete(unavailable).catch((error: Error) => {
-                console.error("Could not remove unavailable titles from the index:", error.message);
+                console.error("Could not remove unavailable items from the index:", error.message);
             });
         }
 
-        return details.length;
+        return drafts.length;
     }
 
-    /** Streaming availability for the configured countries, from TMDB's per-country provider lists. */
-    private availabilityFor(movie: TmdbMovieDetails, checkedAt: string): Record<string, IAvailability> {
-        const availability: Record<string, IAvailability> = {};
-        const results = movie["watch/providers"]?.results ?? {};
-
-        for (const country of this.deps.countries) {
-            const flatrate = results[country]?.flatrate ?? [];
-
-            if (flatrate.length === 0) {
-                continue;
-            }
-
-            availability[country] = {
-                services: [...new Set(flatrate.map((ref: TmdbProviderRef) => slugify(ref.provider_name)))],
-                links: results[country]?.link ? { tmdb: results[country].link as string } : undefined,
-                checkedAt,
-            };
-        }
-
-        return availability;
-    }
-
-    private ratingsFor(movie: TmdbMovieDetails): Record<string, string> | undefined {
-        const ratings: Record<string, string> = {};
-
-        for (const country of this.deps.countries) {
-            const dates = movie.release_dates?.results.find(entry => entry.iso_3166_1 === country)?.release_dates ?? [];
-            const certification = (dates.find(date => date.type === 3 && date.certification) ?? dates.find(date => date.certification))?.certification;
-
-            if (certification) {
-                ratings[country] = certification;
-            }
-        }
-
-        return Object.keys(ratings).length > 0 ? ratings : undefined;
-    }
-
-    private async storeImage(path: string | null, size: string, key: string): Promise<string | undefined> {
-        if (!path) {
+    private async storeImage(draft: ICatalogDraft): Promise<string | undefined> {
+        if (!draft.imageUrl || !draft.item.posterKey) {
             return undefined;
         }
 
         try {
-            return await this.deps.assetStore.ensureFromUrl(this.deps.tmdb.imageUrl(path, size), key);
+            return await this.deps.assetStore.ensureFromUrl(draft.imageUrl, draft.item.posterKey);
         } catch (error: any) {
-            console.error(`Could not store image ${key}: ${error.message}`);
+            console.error(`Could not store image ${draft.item.posterKey}: ${error.message}`);
             return undefined;
         }
     }
 }
 
-export function movieIdFor(tmdbId: number): string {
-    return `tmdb:${tmdbId}`;
-}
-
-export function slugify(name: string): string {
-    return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-}
-
-function yearOf(movie: TmdbMovieDetails): number | undefined {
-    const year = Number(movie.release_date?.slice(0, 4));
-    return Number.isFinite(year) && year > 0 ? year : undefined;
-}
-
-function genreNames(movie: TmdbMovieDetails): string[] {
-    return movie.genres.map(genre => genre.name.toLowerCase());
-}
-
-/** The text whose embedding represents the film: its mood description plus genres and keywords. */
-export function embeddingTextFor(item: Omit<IMovie, "why">, movie: TmdbMovieDetails): string {
-    const keywords = movie.keywords?.keywords.slice(0, 10).map(keyword => keyword.name) ?? [];
+/** The text whose embedding represents the item: its mood description plus genres and keywords. */
+export function embeddingTextFor(item: ICatalogItemDraft, keywords: string[]): string {
     const parts = [item.moodDesc ?? ""];
 
     if (item.genres?.length) parts.push(`Genres: ${item.genres.join(", ")}.`);
-    if (keywords.length) parts.push(`Themes: ${keywords.join(", ")}.`);
+    if (keywords.length) parts.push(`Themes: ${keywords.slice(0, 10).join(", ")}.`);
 
     return parts.join(" ");
 }
 
 /**
  * Filterable metadata stored with the vector; see S3VectorsCandidateRetrieverImpl for the reader.
- * S3 Vectors rejects empty arrays, so list fields are only written when they have values. A film
- * with no known certification therefore has no `ratings` key and is excluded by rating filters
- * until the rating constraint is relaxed.
+ * S3 Vectors rejects empty arrays, so list fields are only written when they have values. An item
+ * with no known rating therefore has no `ratings` key and is excluded by rating filters until the
+ * rating constraint is relaxed.
  */
-export function vectorMetadataFor(item: Omit<IMovie, "why">, countries: string[]): VectorMetadata {
+export function vectorMetadataFor(item: ICatalogItemDraft, countries: string[]): VectorMetadata {
     const metadata: VectorMetadata = {
-        movieId: item.movieId,
+        itemId: item.itemId,
+        mediaType: item.mediaType,
         countries,
         popularity: item.popularity ?? 0,
     };
