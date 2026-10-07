@@ -1,0 +1,137 @@
+cdk/lib/app/movie-mood-stack.ts
+  s_0b6a9714c22355::t_997bc85094e6aa 156,174-176
+  s_0b6a9714c22355::t_9fe33d59632073 36,128-151,186
+src/services/auth/SessionService.ts
+  s_0b6a9714c22355::t_997bc85094e6aa 1-10
+src/services/catalog/domain/types.ts
+  s_0b6a9714c22355::t_40df60a7aa6351 4-5,39,42
+src/services/media/MediaType.ts
+  s_0b6a9714c22355::t_78cb50e18f5dc4 1-72
+src/services/catalog/TmdbClientImpl.ts
+  s_0b6a9714c22355::t_40df60a7aa6351 2,33-35,37-38,47-54,59-78
+  s_0b6a9714c22355::t_6aa95b1815a866 79
+src/services/catalog/domain/items.ts
+  s_0b6a9714c22355::t_78cb50e18f5dc4 1-54
+src/services/catalog/store/DynamoCatalogItemRepositoryImpl.ts
+  s_0b6a9714c22355::t_78cb50e18f5dc4 1-107
+src/services/catalog/BedrockMoodDescriberImpl.ts
+  s_0b6a9714c22355::t_40df60a7aa6351 6,10-11,16-18,20,40,51-52,77,80-81
+src/services/users/UserRepositoryImpl.ts
+  s_0b6a9714c22355::t_9fe33d59632073 3-5,46-86
+  s_0b6a9714c22355::t_a48582a4d04b00 87-88
+src/api/user/index.ts
+  s_0b6a9714c22355::t_9fe33d59632073 5-6,24-45
+  s_0b6a9714c22355::t_5282958a814d76 46-47
+src/services/catalog/sources/TmdbMovieSource.ts
+  s_0b6a9714c22355::t_40df60a7aa6351 1-96
+src/services/auth/domain/types.ts
+  s_0b6a9714c22355::t_997bc85094e6aa 18-19
+test/auth-service.test.ts
+  s_0b6a9714c22355::t_997bc85094e6aa 7-12,16,30-37,60-61,121-165
+src/services/auth/CognitoIdentity.ts
+  s_0b6a9714c22355::t_a1415972695f5f 38
+src/services/catalog/sources/CatalogSource.ts
+  s_0b6a9714c22355::t_40df60a7aa6351 1-41
+src/services/catalog/TmdbClient.ts
+  s_0b6a9714c22355::t_40df60a7aa6351 49-67,69,72-75,78-81
+src/services/catalog/MoodDescriber.ts
+  s_0b6a9714c22355::t_40df60a7aa6351 1-2,4-5,14
+src/services/users/dto/UpdateUserRequest.ts
+  s_0b6a9714c22355::t_9fe33d59632073 1-92
+src/services/users/onboarding.ts
+  s_0b6a9714c22355::t_9fe33d59632073 1-10
+test/user-service.test.ts
+  s_0b6a9714c22355::t_43fca435b10d7f 216-227
+  s_0b6a9714c22355::t_f2c2edf8293037 2,4-6,8,24-29,57-63,150-215,228-251,253
+  s_0b6a9714c22355::t_a1415972695f5f 12,15-16,78,84-85,105,252,267-272,274,280
+  s_0b6a9714c22355::t_22af396a02c745 64,254
+src/services/catalog/store/CatalogItemRepository.ts
+  s_0b6a9714c22355::t_78cb50e18f5dc4 1-12
+src/services/auth/AuthServiceImpl.ts
+  s_0b6a9714c22355::t_997bc85094e6aa 81,174,213-229
+  s_0b6a9714c22355::t_9fe33d59632073 7,75-79
+  s_0b6a9714c22355::t_a1415972695f5f 47-48,124,132
+  s_0b6a9714c22355::t_8caf8667194a93 80,82,230
+src/services/auth/SessionServiceImpl.ts
+  s_0b6a9714c22355::t_997bc85094e6aa 1-45
+src/services/catalog/sources/TmdbTvSource.ts
+  s_0b6a9714c22355::t_40df60a7aa6351 1-109
+test/recommendations.test.ts
+  s_0b6a9714c22355::t_f2c2edf8293037 133-136
+  s_0b6a9714c22355::t_47bbfbb923f985 218
+  s_0b6a9714c22355::t_2c15c58c2e837e 17-19,64-65,75,81,90,102,107,118,173-174,176-180,186-187,194-195,235,242,248,260,264,317-324
+src/services/users/dto/CreateUserRequest.ts
+  s_0b6a9714c22355::t_a1415972695f5f 8,10,21-24
+  s_0b6a9714c22355::t_672af32bebe850 25
+src/api/auth/index.ts
+  s_0b6a9714c22355::t_997bc85094e6aa 4,9-10,13,22,30,36
+src/services/users/UserService.ts
+  s_0b6a9714c22355::t_9fe33d59632073 1,17-22
+  s_0b6a9714c22355::t_43fca435b10d7f 23-25
+src/services/users/domain/types.ts
+  s_0b6a9714c22355::t_a1415972695f5f 12,23-24,56,86
+  s_0b6a9714c22355::t_9fe33d59632073 32,34,41,61-77
+  s_0b6a9714c22355::t_4d8f60f4520ad1 42,78
+src/services/catalog/sources/tmdbShared.ts
+  s_0b6a9714c22355::t_40df60a7aa6351 1-61
+src/services/auth/AuthService.ts
+  s_0b6a9714c22355::t_9fe33d59632073 14-16
+  s_0b6a9714c22355::t_a1415972695f5f 10
+src/services/catalog/store/CatalogStore.ts
+  s_0b6a9714c22355::t_78cb50e18f5dc4 1-69
+src/services/users/UserServiceImpl.ts
+  s_0b6a9714c22355::t_9fe33d59632073 3,7-9,37,48,50,53-55,73-107,109-110,112-118
+  s_0b6a9714c22355::t_a1415972695f5f 25-26,29,41
+  s_0b6a9714c22355::t_43fca435b10d7f 119,121-131
+  s_0b6a9714c22355::t_47bbfbb923f985 108,111
+  s_0b6a9714c22355::t_900fb4d53a6e96 120
+src/services/users/UserRepository.ts
+  s_0b6a9714c22355::t_9fe33d59632073 1-4,12-17
+  s_0b6a9714c22355::t_e67bc3322c1548 18
+src/services/auth/domain/session.ts
+  s_0b6a9714c22355::t_997bc85094e6aa 1-9
+cdk/lib/infrastructure/storages-stack.ts
+  s_0b6a9714c22355::t_83fda2739a3603 90-92,94,96
+src/api/recommendations/index.ts
+  s_0b6a9714c22355::t_1ce0bc1a64b0ec 33
+src/services/catalog/CatalogRefreshService.ts
+  s_0b6a9714c22355::t_c57d6df0dc14df 5-7
+src/services/catalog/CatalogRefreshServiceImpl.ts
+  s_0b6a9714c22355::t_4d88d2f6ce00cf 3,6-11,13,27-28,32,36,41-45,51-54,59-62,70-72,74,78,81,89,94,97-100,104-105,108,110-113,116,121-143,146-148,150-157,160-166,173-187,189,191-194,196-201,203,206-210,212,214,217,220,223-224,230-234,236,238,240-242,245,248,257,261,264-265,270,272,278-279,283,290-292,294,296-297
+src/services/recommendations/BedrockExplanationServiceImpl.ts
+  s_0b6a9714c22355::t_1486b2c4622924 7-10,14,20-23,26,34,38,42,50,55,59,61-62,65,67,79-80,83,96,103-109,135,137
+src/services/recommendations/ExplanationService.ts
+  s_0b6a9714c22355::t_0b810c188a903e 2,6-7,9
+src/services/recommendations/RecommendationServiceImpl.ts
+  s_0b6a9714c22355::t_8f2adf3f041c79 30,33-35,47,58,68-69,112,121-124,126,131-140,157,185-186
+src/services/recommendations/S3VectorsCandidateRetrieverImpl.ts
+  s_0b6a9714c22355::t_c5181d8123f8f0 3,7-10,12-13,29-38,46-47,53,69
+src/services/recommendations/domain/types.ts
+  s_0b6a9714c22355::t_b9824d55b00b7c 1-2,43-44,53,55-56,91-92,99-101,109-110,118
+src/services/recommendations/dto/RecommendRequest.ts
+  s_0b6a9714c22355::t_ba789ad837dfb5 1,4,14-20
+src/services/recommendations/ranking.ts
+  s_0b6a9714c22355::t_8a06b93892ecd3 8,17,88
+test/catalog-refresh.test.ts
+  s_0b6a9714c22355::t_0d7ecf20cd1ba3 1,3-10,12,18,20-21,26-27,29-30,34,37,40-41,44,46,48,50-62,68-70,100-101,103-104,107-108,111,113-114,147,151,156,161,164-166,168-171,175-178,180-182,184,186,189-197,199-203,205-207,211-215,219-222,229-231,236,243,247-249,254,261-313,322,324
+test/media-type.test.ts
+  s_0b6a9714c22355::t_074f4c886a4ad4 1-29
+test/s3vectors-retriever.test.ts
+  s_0b6a9714c22355::t_33c051eb0332b2 2,5-6,8-9,11,20-22,42,44-46,50,53-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "955b62687b7b7682553f73eb8c786915261ccf0a",
+  "prompts": {},
+  "sessions": {
+    "s_0b6a9714c22355": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b43beefb-2459-41d4-a044-ae2bdab03e29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Yanick Kazadi <yanickkazadi@Mac.cgocable.net>"
+    }
+  }
+}
