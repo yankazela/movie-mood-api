@@ -1,6 +1,6 @@
 import path = require("path");
-import { CfnOutput, Duration, RemovalPolicy, Stack } from 'aws-cdk-lib';
-import { AccountRecovery, UserPool, UserPoolClient, UserPoolOperation } from 'aws-cdk-lib/aws-cognito';
+import { CfnOutput, CfnParameter, Duration, RemovalPolicy, SecretValue, Stack } from 'aws-cdk-lib';
+import { AccountRecovery, UserPool, UserPoolClient, UserPoolOperation, UserPoolIdentityProviderGoogle, ProviderAttribute, UserPoolClientIdentityProvider, OAuthScope } from 'aws-cdk-lib/aws-cognito';
 import { ITable } from 'aws-cdk-lib/aws-dynamodb';
 import { Code, Function, Runtime } from 'aws-cdk-lib/aws-lambda';
 import { Construct } from 'constructs';
@@ -9,6 +9,8 @@ import { CommonProps } from '../../bin/project-names';
 export interface AuthStackProps extends CommonProps {
 	/** Users table that receives a profile for every confirmed identity. */
 	usersTable: ITable;
+	/** HTTPS origin of the deployed frontend, without a trailing slash. Cognito rejects http:// URLs other than localhost. */
+	frontendUrl: string;
 }
 
 export class AuthStack extends Stack {
@@ -18,18 +20,51 @@ export class AuthStack extends Stack {
 	constructor(scope: Construct, id: string, props: AuthStackProps) {
 		super(scope, id, props);
 
-		// Email/password users are created server-side by the create-user API, so self
-		// sign-up stays off. Federated sign-in (Google, Apple) is unaffected by this flag.
+		const googleClientId = new CfnParameter(this, "GoogleClientId", {
+			type: "String",
+			description: "Google OAuth client ID",
+			minLength: 1,
+		});
+
+		// noEcho keeps the secret out of the console, describe-stacks output and synthesized templates.
+		const googleClientSecret = new CfnParameter(this, "GoogleClientSecret", {
+			type: "String",
+			description: "Google OAuth client secret",
+			noEcho: true,
+			minLength: 1,
+		});
+
+		// Self sign-up is on so the hosted UI can register email/password users too. Those users
+		// get their profile from the post-confirmation trigger, like Google users, without a country.
 		this.userPool = new UserPool(this, 'UserPool', {
 			userPoolName: `${props.projectName}-users-${props.stage}`,
-			selfSignUpEnabled: false,
+			selfSignUpEnabled: true,
 			signInAliases: { email: true },
 			autoVerify: { email: true },
+			// Only email is declared. Standard attributes such as `name` are always available, and
+			// Cognito rejects schema changes on an existing pool, so don't add attributes here.
 			standardAttributes: {
 				email: { required: true, mutable: true },
 			},
 			accountRecovery: AccountRecovery.EMAIL_ONLY,
 			removalPolicy: RemovalPolicy.RETAIN,
+		});
+
+		// Hosted UI domain: https://movie-mood-dev.auth.<region>.amazoncognito.com
+		const domain = this.userPool.addDomain('Domain', {
+			cognitoDomain: { domainPrefix: `${props.projectName}-${props.stage}` },
+		});
+
+		const google = new UserPoolIdentityProviderGoogle(this, 'Google', {
+			userPool: this.userPool,
+			clientId: googleClientId.valueAsString,
+			clientSecretValue: SecretValue.cfnParameter(googleClientSecret),
+			scopes: ['openid', 'email', 'profile'],
+			attributeMapping: {
+				email: ProviderAttribute.GOOGLE_EMAIL,
+				fullname: ProviderAttribute.GOOGLE_NAME,
+				profilePicture: ProviderAttribute.GOOGLE_PICTURE,
+			},
 		});
 
 		// App client used by the sign-in API. ADMIN_USER_PASSWORD_AUTH lets the backend verify
@@ -41,7 +76,33 @@ export class AuthStack extends Stack {
 			generateSecret: false,
 			// Report wrong email and wrong password identically, so callers can't probe for accounts.
 			preventUserExistenceErrors: true,
+			supportedIdentityProviders: [
+				UserPoolClientIdentityProvider.GOOGLE,
+				UserPoolClientIdentityProvider.COGNITO, // keep if you also want email/password
+			],
+			oAuth: {
+				flows: { authorizationCodeGrant: true },
+				scopes: [OAuthScope.OPENID, OAuthScope.EMAIL, OAuthScope.PROFILE],
+				// The exported site uses trailing slashes (/auth/callback/), and Cognito matches URLs exactly.
+				callbackUrls: [
+					'http://localhost:3000/',
+					'http://localhost:3000/auth/callback',
+					props.frontendUrl,
+					`${props.frontendUrl}/`,
+					`${props.frontendUrl}/auth/callback`,
+					`${props.frontendUrl}/auth/callback/`,
+				],
+				logoutUrls: [
+					'http://localhost:3000/',
+					'http://localhost:3000/login',
+					`${props.frontendUrl}/`,
+					`${props.frontendUrl}/login`,
+					`${props.frontendUrl}/login/`,
+				],
+			}
 		});
+		// The client names Google as a provider, so the provider must exist first or the deploy fails.
+		this.apiClient.node.addDependency(google);
 
 		// Cognito creates the user pool entry itself for Google/Apple sign-ins, so their
 		// profile is created from this trigger rather than through the create-user API.
@@ -73,6 +134,11 @@ export class AuthStack extends Stack {
 		new CfnOutput(this, 'UserPoolClientId', {
 			value: this.apiClient.userPoolClientId,
 			exportName: `${props.projectName}-UserPoolClientId-${props.stage}`,
+		});
+
+		new CfnOutput(this, 'HostedUiDomain', {
+			value: domain.baseUrl(),
+			description: 'Base URL of the Cognito hosted UI; add it as an authorised redirect origin in Google Cloud',
 		});
 	}
 }

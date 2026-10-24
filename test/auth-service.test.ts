@@ -87,6 +87,30 @@ describe("AuthServiceImpl.signIn", () => {
     });
 });
 
+describe("AuthServiceImpl.refresh", () => {
+    test("trades a refresh token for new id and access tokens, handing the refresh token back", async () => {
+        const { service, client } = serviceWith(() => ({ AuthenticationResult: { IdToken: idToken, AccessToken: "access-2", ExpiresIn: 3600, TokenType: "Bearer" } }));
+
+        const result = await service.refresh("refresh-1");
+
+        expect(client.sent[0]).toBeInstanceOf(AdminInitiateAuthCommand);
+        expect(client.sent[0].input).toMatchObject({ AuthFlow: "REFRESH_TOKEN_AUTH", AuthParameters: { REFRESH_TOKEN: "refresh-1" } });
+        expect(result).toEqual({
+            outcome: "authenticated",
+            userId: "sub-123",
+            tokens: { idToken, accessToken: "access-2", refreshToken: "refresh-1", expiresIn: 3600, tokenType: "Bearer" },
+        });
+    });
+
+    test("maps a revoked or expired refresh token to UnauthorizedError", async () => {
+        const { service } = serviceWith(() => {
+            throw new NotAuthorizedException({ message: "Refresh Token has been revoked", $metadata: {} });
+        });
+
+        await expect(service.refresh("stale")).rejects.toBeInstanceOf(UnauthorizedError);
+    });
+});
+
 describe("AuthServiceImpl.completeNewPassword", () => {
     test("answers the challenge with the new password and returns tokens", async () => {
         const { service, client } = serviceWith(() => ({ AuthenticationResult: tokens }));

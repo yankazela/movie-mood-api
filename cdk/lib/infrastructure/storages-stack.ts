@@ -1,10 +1,12 @@
 import { CfnOutput, Fn, RemovalPolicy, Stack } from 'aws-cdk-lib';
 import { BlockPublicAccess, Bucket } from 'aws-cdk-lib/aws-s3';
 import { Function } from "aws-cdk-lib/aws-lambda";
+import { AnyPrincipal, PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { CommonProps } from "../../bin/project-names";
 import { Attribute, AttributeType, BillingMode, CfnTable, ProjectionType, Table } from 'aws-cdk-lib/aws-dynamodb';
 import { CfnIndex, CfnVectorBucket } from 'aws-cdk-lib/aws-s3vectors';
+import { VECTOR_INDEX_NAME, vectorBucketName as buildVectorBucketName, vectorIndexArn } from '../shared/vector-store';
 
 interface TableSpec {
 	/** Short lowercase name, e.g. "users". Drives the construct id, table name and exports. */
@@ -77,21 +79,37 @@ export class StorageStack extends Stack {
 
 		this.bucket = new Bucket(this, "MovieMoodBucket", {
 			bucketName: `${props.projectName}-storage-${props.stage}`,
-			blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+			// ACLs stay blocked; a bucket policy may grant public access, and the one below only
+			// does so for posters/.
+			blockPublicAccess: BlockPublicAccess.BLOCK_ACLS_ONLY,
 			versioned: false,
 			publicReadAccess: false
 		});
+
+		// Posters are fetched straight from S3 by clients: anyone may read posters/*, nothing else.
+		this.bucket.addToResourcePolicy(new PolicyStatement({
+			sid: "PublicReadPosters",
+			principals: [new AnyPrincipal()],
+			actions: ["s3:GetObject"],
+			resources: [this.bucket.arnForObjects("posters/*")],
+		}));
 
 		new CfnOutput(this, "MovieMoodBucketName", {
 			value: this.bucket.bucketName,
 			exportName: `${props.projectName}-MovieMoodBucketName-${props.stage}`,
 		});
 
+		// A poster's URL is this base followed by the item's posterKey.
+		new CfnOutput(this, "PostersBaseUrl", {
+			value: `https://${this.bucket.bucketRegionalDomainName}/`,
+			exportName: `${props.projectName}-PostersBaseUrl-${props.stage}`,
+		});
+
 		// Mood embeddings for every medium (films, series, documentaries, later music and books) share
 		// one S3 Vectors index, filtered by mediaType at query time: float32, cosine distance, and the
 		// dimension count of the Titan v2 embedder. Rebuilt nightly by catalog-refresh.
-		const vectorBucketName = `${props.projectName}-vectors-${props.stage}`;
-		const vectorIndexName = 'catalog';
+		const vectorBucketName = buildVectorBucketName(props);
+		const vectorIndexName = VECTOR_INDEX_NAME;
 		const vectorBucket = new CfnVectorBucket(this, 'VectorBucket', { vectorBucketName });
 		const vectorIndex = new CfnIndex(this, 'CatalogVectorIndex', {
 			vectorBucketName,
@@ -111,7 +129,7 @@ export class StorageStack extends Stack {
 			exportName: `${props.projectName}-VectorIndexName-${props.stage}`,
 		});
 		new CfnOutput(this, 'VectorIndexArn', {
-			value: `arn:aws:s3vectors:${this.region}:${this.account}:bucket/${vectorBucketName}/index/${vectorIndexName}`,
+			value: vectorIndexArn(props, this.region, this.account),
 			exportName: `${props.projectName}-VectorIndexArn-${props.stage}`,
 		});
 	}

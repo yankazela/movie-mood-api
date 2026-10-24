@@ -40,13 +40,13 @@ export class TmdbClientImpl implements TmdbClient {
 
     public getMovie(tmdbId: number): Promise<TmdbMovieDetails> {
         return this.get<TmdbMovieDetails>(`/movie/${tmdbId}`, {
-            append_to_response: "release_dates,watch/providers,keywords",
+            append_to_response: "release_dates,watch/providers,keywords,credits",
         });
     }
 
     public getTv(tmdbId: number): Promise<TmdbTvDetails> {
         return this.get<TmdbTvDetails>(`/tv/${tmdbId}`, {
-            append_to_response: "content_ratings,watch/providers,keywords",
+            append_to_response: "content_ratings,watch/providers,keywords,credits",
         });
     }
 

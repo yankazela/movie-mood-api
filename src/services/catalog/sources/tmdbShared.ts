@@ -1,4 +1,4 @@
-import { TmdbCountryProviders, TmdbGenre, TmdbProviderRef } from "../TmdbClient";
+import { TmdbCountryProviders, TmdbCredits, TmdbGenre, TmdbProviderRef } from "../TmdbClient";
 import { IAvailability } from "../domain/items";
 import { IProvider } from "../domain/types";
 import { DEEP_LINK_TEMPLATES } from "../config";
@@ -16,6 +16,21 @@ export function genreNames(genres: TmdbGenre[]): string[] {
 
 export function isDocumentary(genres: TmdbGenre[]): boolean {
     return genres.some(genre => genre.id === TMDB_DOCUMENTARY_GENRE_ID);
+}
+
+const MAX_CAST = 6;
+
+export function castOf(credits: TmdbCredits | undefined): { name: string; character?: string }[] | undefined {
+    const cast = [...(credits?.cast ?? [])]
+        .sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER))
+        .slice(0, MAX_CAST)
+        .map(member => ({ name: member.name, character: member.character || undefined }));
+
+    return cast.length > 0 ? cast : undefined;
+}
+
+export function directorOf(credits: TmdbCredits | undefined): string | undefined {
+    return credits?.crew?.find(member => member.job === "Director")?.name;
 }
 
 export function yearOf(date: string | undefined): number | undefined {

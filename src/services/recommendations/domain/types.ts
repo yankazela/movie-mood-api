@@ -13,6 +13,14 @@ export enum EInputType {
     VOICE = "voice",
 }
 
+/** How a user felt about a recommendation or a title. */
+export enum EFeedback {
+    PERFECT = "perfect",
+    GOOD = "good",
+    OKAY = "okay",
+    NOT_FOR_ME = "not-for-me",
+}
+
 /** Structured reading of how the user feels, produced by the mood resolver. */
 export interface IMoodProfile {
     primary_emotion: string;
@@ -48,6 +56,21 @@ export interface IRetrievalFilters {
     /** Content ratings the user allows; empty means no restriction. */
     ratingsAllowed: string[];
     maxRuntimeMin?: number;
+    /** Only titles with at least one of these genres (lower-case TMDB names). */
+    genres?: string[];
+    /** Only titles released in or after this year. */
+    minYear?: number;
+}
+
+/** Constraints the user set explicitly in the app, beyond what the mood text implies. */
+export interface IRequestFilters {
+    maxRuntimeMin?: number;
+    genres?: string[];
+    releaseYearMin?: number;
+    /** Minimum audience score, 0 to 10. Applied after retrieval, to titles that have a score. */
+    minRating?: number;
+    /** ISO 639-1 original language. Applied after retrieval, to titles that have one. */
+    language?: string;
 }
 
 /** An item as returned by the vector index, before re-ranking. */
@@ -80,6 +103,12 @@ export interface IRecommendationRequest {
     resultIds: string[];
     resolver: string;
     latencyMs: number;
+    /** Moods the user ticked in the app, in addition to the free text. */
+    moods?: string[];
+    filters?: IRequestFilters;
+    /** The title the user chose to watch from these results. */
+    selectedItemId?: string;
+    feedback?: EFeedback;
     /** Epoch seconds; DynamoDB deletes the item after this (90 days). */
     ttl: number;
 }
@@ -94,6 +123,8 @@ export interface IRecommendInput {
     /** From the JWT when present; otherwise the profile's value is used. */
     country?: string;
     services?: string[];
+    moods?: string[];
+    filters?: IRequestFilters;
 }
 
 export interface IRecommendedItem {
@@ -109,6 +140,11 @@ export interface IRecommendedItem {
     /** Media-specific fields, e.g. episode and season counts for a series. */
     details?: Record<string, unknown>;
     why?: string;
+    /** Content rating in the user's country, e.g. "PG-13" or "13". */
+    rating?: string;
+    popularity?: number;
+    /** 0 to 100, how well the title fits the request. Only set on recommendation results. */
+    matchScore?: number;
 }
 
 export interface IRecommendationResult {

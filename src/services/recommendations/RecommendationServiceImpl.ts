@@ -13,6 +13,7 @@ import { RequestRepositoryImpl } from "./RequestRepositoryImpl";
 import { TitanEmbedderImpl } from "./TitanEmbedderImpl";
 import { applyObjective, renderTargetSentence } from "./targeting";
 import { rerank, selectDiverse } from "./ranking";
+import { expandGenres, expandRatings, expandServices } from "./preferences";
 import {
     CANDIDATE_COUNT,
     DEFAULT_SUPPORTIVE_MESSAGE,
@@ -28,10 +29,12 @@ import {
     IRecommendInput,
     IRecommendationResult,
     IRecommendedItem,
+    IRequestFilters,
     IRetrievalFilters,
 } from "./domain/types";
 import { CatalogItemRepository } from "../catalog/store/CatalogItemRepository";
 import { CatalogStore } from "../catalog/store/CatalogStore";
+import { toRecommendedItem } from "../catalog/presenter";
 import { ACTIVE_MEDIA_TYPES } from "../media/MediaType";
 import { UserRepository } from "../users/UserRepository";
 import { UserRepositoryImpl } from "../users/UserRepositoryImpl";
@@ -94,10 +97,11 @@ export class RecommendationServiceImpl implements RecommendationService {
             throw new ValidationError("Set your country in your profile before requesting recommendations.");
         }
 
-        const services = input.services ?? user.services ?? [];
+        const services = expandServices(input.services ?? user.services ?? []);
+        const requested = input.filters ?? {};
 
-        // Resolve: one model call turns the text into a mood profile.
-        const moodProfile = await this.moodResolver.resolve(input.text);
+        // Resolve: one model call turns the text, and any moods the user ticked, into a mood profile.
+        const moodProfile = await this.moodResolver.resolve(resolverText(input.text, input.moods));
 
         if (moodProfile.safety_flag) {
             throw new SafetyError(moodProfile.supportive_message || DEFAULT_SUPPORTIVE_MESSAGE);
@@ -112,10 +116,12 @@ export class RecommendationServiceImpl implements RecommendationService {
             mediaTypes: input.mediaTypes?.length ? input.mediaTypes : ACTIVE_MEDIA_TYPES,
             country,
             services,
-            ratingsAllowed: user.ratingsAllowed ?? [],
-            maxRuntimeMin: moodProfile.constraints.max_runtime_min,
+            ratingsAllowed: expandRatings(country, user.ratingsAllowed ?? []),
+            maxRuntimeMin: smallest(moodProfile.constraints.max_runtime_min, requested.maxRuntimeMin),
+            genres: requested.genres?.length ? expandGenres(requested.genres) : undefined,
+            minYear: requested.releaseYearMin,
         };
-        const { chosen, notice } = await this.retrieveAndRank(vector, filters, user);
+        const { chosen, notice } = await this.retrieveAndRank(vector, filters, user, requested);
 
         // Explain: metadata, availability and why lines.
         const items = await this.catalogStore.findByIds(chosen.map(candidate => candidate.itemId));
@@ -128,16 +134,9 @@ export class RecommendationServiceImpl implements RecommendationService {
             }
 
             return [{
-                itemId: item.itemId,
-                mediaType: item.mediaType,
-                title: item.title,
-                year: item.year,
-                runtime: item.runtime,
-                genres: item.genres ?? [],
-                posterKey: item.posterKey,
-                availability: item.availability?.[country],
-                details: item.details,
+                ...toRecommendedItem(item, country),
                 why: whyLines.get(item.itemId),
+                matchScore: Math.min(99, Math.max(1, Math.round(candidate.score * 100))),
             }];
         });
 
@@ -157,6 +156,8 @@ export class RecommendationServiceImpl implements RecommendationService {
             resultIds: results.map(result => result.itemId),
             resolver: this.moodResolver.name,
             latencyMs,
+            moods: input.moods?.length ? input.moods : undefined,
+            filters: Object.keys(requested).length > 0 ? requested : undefined,
             ttl: Math.floor(startedAt.getTime() / 1000) + REQUEST_TTL_DAYS * 24 * 60 * 60,
         });
         await this.userRepository.incrementDailyCount(input.userId, today);
@@ -173,13 +174,17 @@ export class RecommendationServiceImpl implements RecommendationService {
         vector: number[],
         filters: IRetrievalFilters,
         user: IUser,
+        requested: IRequestFilters,
     ): Promise<{ chosen: IRankedCandidate[]; notice?: "few_matches" }> {
-        const personal = { genrePrefs: user.genrePrefs ?? {}, votes: user.votes ?? {} };
+        const personal = { genrePrefs: user.genrePrefs ?? {}, votes: user.votes ?? {}, watched: user.watched ?? [] };
         const pool = new Map<string, ICandidate>();
         let chosen: IRankedCandidate[] = [];
 
         for (const stage of relaxationStages(filters)) {
-            const candidates = await this.candidateRetriever.retrieve(vector, stage, CANDIDATE_COUNT);
+            const candidates = await this.meetsScoreAndLanguage(
+                await this.candidateRetriever.retrieve(vector, stage, CANDIDATE_COUNT),
+                requested,
+            );
 
             for (const candidate of candidates) {
                 if (!pool.has(candidate.itemId)) {
@@ -196,6 +201,36 @@ export class RecommendationServiceImpl implements RecommendationService {
 
         return { chosen, notice: "few_matches" };
     }
+
+    /** Drops candidates whose catalogue entry says they miss the score or language asked for; unknowns pass. */
+    private async meetsScoreAndLanguage(candidates: ICandidate[], requested: IRequestFilters): Promise<ICandidate[]> {
+        if ((requested.minRating === undefined && !requested.language) || candidates.length === 0) {
+            return candidates;
+        }
+
+        const items = new Map((await this.catalogStore.findByIds(candidates.map(candidate => candidate.itemId))).map(item => [item.itemId, item]));
+
+        return candidates.filter(candidate => {
+            const details = (items.get(candidate.itemId)?.details ?? {}) as { voteAverage?: unknown; originalLanguage?: unknown };
+
+            if (requested.minRating !== undefined && typeof details.voteAverage === "number" && details.voteAverage < requested.minRating) {
+                return false;
+            }
+
+            return !requested.language || typeof details.originalLanguage !== "string" || details.originalLanguage === requested.language;
+        });
+    }
+}
+
+/** What the mood resolver reads: the user's words, plus the moods they ticked. */
+export function resolverText(text: string, moods: string[] | undefined): string {
+    return moods?.length ? `${text}\nMoods I selected: ${moods.join(", ")}` : text;
+}
+
+function smallest(...values: (number | undefined)[]): number | undefined {
+    const defined = values.filter((value): value is number => value !== undefined);
+
+    return defined.length > 0 ? Math.min(...defined) : undefined;
 }
 
 function defaultCandidateRetriever(): CandidateRetriever {

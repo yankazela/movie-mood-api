@@ -66,6 +66,14 @@ export function buildCandidateFilter(filters: IRetrievalFilters): VectorFilter {
         clauses.push({ runtime: { $lte: filters.maxRuntimeMin } });
     }
 
+    if (filters.genres && filters.genres.length > 0) {
+        clauses.push({ genres: { $in: filters.genres } });
+    }
+
+    if (filters.minYear) {
+        clauses.push({ year: { $gte: filters.minYear } });
+    }
+
     return { $and: clauses };
 }
 

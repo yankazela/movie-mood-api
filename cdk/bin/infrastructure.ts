@@ -2,6 +2,7 @@ import { App } from 'aws-cdk-lib';
 import { projectName } from './project-names';
 import { StorageStack } from '../lib/infrastructure/storages-stack';
 import { AuthStack } from '../lib/infrastructure/auth-stack';
+import { WebStack } from '../lib/infrastructure/web-stack';
 
 const app = new App();
 const stage = (app.node.tryGetContext('stage') as string) || "dev";
@@ -16,10 +17,13 @@ const stackProps = {
 
 const storage = new StorageStack(app, `${projectName}-storage-${stage}`, { ...stackProps, name: "storage" });
 
+const web = new WebStack(app, `${projectName}-web-${stage}`, { ...stackProps, name: "web", siteBucketName: "movie-mood-web" });
+
 new AuthStack(app, `${projectName}-auth-${stage}`, {
     ...stackProps,
     name: "auth",
     usersTable: storage.users,
+    frontendUrl: `https://${web.distribution.distributionDomainName}`,
 });
 
 app.synth();

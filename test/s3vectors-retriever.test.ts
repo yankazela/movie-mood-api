@@ -23,6 +23,19 @@ describe("buildCandidateFilter", () => {
     });
 });
 
+describe("buildCandidateFilter explicit filters", () => {
+    test("adds genre and release-year constraints", () => {
+        expect(buildCandidateFilter({ mediaTypes: [EMediaType.MOVIE], country: "ZA", services: [], ratingsAllowed: [], genres: ["comedy", "sci-fi & fantasy"], minYear: 2015 })).toEqual({
+            $and: [
+                { mediaType: { $in: ["movie"] } },
+                { countries: { $eq: "ZA" } },
+                { genres: { $in: ["comedy", "sci-fi & fantasy"] } },
+                { year: { $gte: 2015 } },
+            ],
+        });
+    });
+});
+
 describe("S3VectorsCandidateRetrieverImpl", () => {
     class FakeIndex implements VectorIndex {
         public queries: { filter?: VectorFilter; topK: number }[] = [];

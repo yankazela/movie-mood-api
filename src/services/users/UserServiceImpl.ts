@@ -1,23 +1,30 @@
 import { AuthService } from "../auth/AuthService";
 import { AuthServiceImpl } from "../auth/AuthServiceImpl";
+import { CatalogItemRepository } from "../catalog/store/CatalogItemRepository";
+import { CatalogStore } from "../catalog/store/CatalogStore";
+import { toRecommendedItem } from "../catalog/presenter";
 import { NotFoundError, ProfileAlreadyExistsError, ValidationError } from "../common/errors";
 import { UserRepository } from "./UserRepository";
 import { UserRepositoryImpl } from "./UserRepositoryImpl";
 import { UserService } from "./UserService";
 import { ICreateUserInput, IIdentity, IProfileInput, IUpdateUserInput, IUser, IVote } from "./domain/types";
+import { IRecommendedItem } from "../recommendations/domain/types";
 import { UserFieldChanges } from "./UserRepository";
 import { isFullyOnboarded } from "./onboarding";
 
 export class UserServiceImpl implements UserService {
     private readonly authService: AuthService;
     private readonly userRepository: UserRepository;
+    private readonly catalogStore: CatalogItemRepository;
 
     constructor(
         authService: AuthService = new AuthServiceImpl(),
         userRepository: UserRepository = new UserRepositoryImpl(),
+        catalogStore: CatalogItemRepository = CatalogStore.fromEnvironment(),
     ) {
         this.authService = authService;
         this.userRepository = userRepository;
+        this.catalogStore = catalogStore;
     }
 
     public async createUser(input: ICreateUserInput): Promise<IUser> {
@@ -48,6 +55,7 @@ export class UserServiceImpl implements UserService {
             createdAt: now,
             dailyCount: 0,
             fullyOnboarded: false,
+            savedMovies: [],
         };
 
         user.fullyOnboarded = isFullyOnboarded(user);
@@ -84,12 +92,16 @@ export class UserServiceImpl implements UserService {
             services: input.services,
             ratingsAllowed: input.ratingsAllowed,
             genrePrefs: input.genrePrefs,
+            myMovies: input.myMovies,
+            watched: input.watched,
         };
         const votes: Record<string, IVote> = Object.fromEntries(
             Object.entries(input.votes ?? {}).map(([itemId, vote]) => [itemId, { vote: vote.vote, requestId: vote.requestId, at: now }]),
         );
+        const mapChanges = { ratings: input.ratings, removeVotes: input.removeVotes };
+        const hasMapChanges = Object.keys(input.ratings ?? {}).length > 0 || (input.removeVotes ?? []).length > 0;
 
-        if (Object.values(changes).every(value => value === undefined) && Object.keys(votes).length === 0) {
+        if (Object.values(changes).every(value => value === undefined) && Object.keys(votes).length === 0 && !hasMapChanges) {
             throw new ValidationError("Provide at least one field to update");
         }
 
@@ -106,7 +118,7 @@ export class UserServiceImpl implements UserService {
         }
 
         const previousName = current.fullName;
-        const updated = await this.userRepository.update(userId, changes, votes);
+        const updated = await this.userRepository.update(userId, changes, votes, hasMapChanges ? mapChanges : undefined);
 
         if (changes.fullName && changes.fullName !== previousName && username) {
             // The profile is the source of truth; a stale token name is not worth failing the update.
@@ -115,7 +127,7 @@ export class UserServiceImpl implements UserService {
             });
         }
 
-        return updated;
+        return this.withSavedMovies(updated);
     }
 
     public async getUser(userId: string): Promise<IUser> {
@@ -126,7 +138,29 @@ export class UserServiceImpl implements UserService {
         }
 
         // Profiles saved before fullyOnboarded existed get it derived on read.
-        return { ...user, fullyOnboarded: user.fullyOnboarded ?? isFullyOnboarded(user) };
+        return this.withSavedMovies({ ...user, fullyOnboarded: user.fullyOnboarded ?? isFullyOnboarded(user) });
+    }
+
+    /** Adds the catalogue items behind `myMovies`, in the user's order; ids no longer in the catalogue are left out. */
+    private async withSavedMovies(user: IUser): Promise<IUser> {
+        const myMovies = user.myMovies ?? [];
+
+        if (myMovies.length === 0) {
+            return { ...user, savedMovies: [] };
+        }
+
+        const byId = new Map((await this.catalogStore.findByIds(myMovies)).map(item => [item.itemId, item]));
+        const savedMovies = myMovies.flatMap((itemId): IRecommendedItem[] => {
+            const item = byId.get(itemId);
+
+            if (!item) {
+                return [];
+            }
+
+            return [toRecommendedItem(item, user.country)];
+        });
+
+        return { ...user, savedMovies };
     }
 
     private async rollbackIdentity(username: string, email: string): Promise<void> {

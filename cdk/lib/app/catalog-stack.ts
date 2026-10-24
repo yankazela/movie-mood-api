@@ -1,5 +1,5 @@
 import path = require("path");
-import { Duration, Fn, SecretValue, Stack } from "aws-cdk-lib";
+import { CfnParameter, Duration, Fn, SecretValue, Stack } from "aws-cdk-lib";
 import { Table } from "aws-cdk-lib/aws-dynamodb";
 import { Rule, Schedule } from "aws-cdk-lib/aws-events";
 import { LambdaFunction } from "aws-cdk-lib/aws-events-targets";
@@ -9,6 +9,7 @@ import { Bucket } from "aws-cdk-lib/aws-s3";
 import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { CommonProps } from "@novha/cdk-lib";
 import { Construct } from "constructs";
+import { VECTOR_INDEX_NAME, vectorBucketName, vectorIndexArn as buildVectorIndexArn } from "../shared/vector-store";
 
 /**
  * The nightly catalog-refresh job: pulls popular streamable films from TMDB, writes metadata,
@@ -24,14 +25,24 @@ export class MovieMoodCatalogStack extends Stack {
 		const providersTable = Table.fromTableArn(this, "ProvidersTable", importName("ProvidersTableArn"));
 		const configTable = Table.fromTableArn(this, "ConfigTable", importName("ConfigTableArn"));
 		const assetsBucket = Bucket.fromBucketName(this, "AssetsBucket", importName("MovieMoodBucketName"));
-		const vectorIndexArn = importName("VectorIndexArn");
+		// Computed, not imported, so the storage stack stays free to change the index.
+		const vectorIndexArn = buildVectorIndexArn(props, this.region, this.account);
 
-		// Holds the TMDB v3 API key or v4 read access token. Deployed as a placeholder; set the real
-		// value in the console or with `aws secretsmanager put-secret-value`.
+		// A distinct id from the Secret below: two constructs can't share an id in one scope.
+		// noEcho keeps the token out of the console, describe-stacks output and synthesized templates.
+		const tmdbTokenParam = new CfnParameter(this, "TmdbApiToken", {
+			type: "String",
+			description: "TMDB v3 API key or v4 read access token",
+			noEcho: true,
+			// Fail at parameter validation, before any resource is touched, if the value is empty.
+			minLength: 1,
+		});
+
+		// Holds the TMDB credential, supplied at deploy time through the TmdbApiToken parameter.
 		const tmdbSecret = new Secret(this, "TmdbSecret", {
 			secretName: `${props.projectName}/tmdb-${props.stage}`,
 			description: "TMDB API key or read access token used by catalog-refresh",
-			secretStringValue: SecretValue.unsafePlainText("eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJhNzJhZDI4NjVmYjcxNjJiZjA0NjY5ZDU3OTU1MTljZCIsIm5iZiI6MTc5MTEyNTMyOC41MTgwMDAxLCJzdWIiOiI2YWMyNjc1MDA3NTdlMDMyZGIzMjQ4ZTkiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.R_r4xf3a7xVVJWENmFDLy_F-O_H-VQLndiLmmERiqvY"),
+			secretStringValue: SecretValue.cfnParameter(tmdbTokenParam),
 		});
 
 		// A fixed name lets the function grant itself invoke permission without a circular reference.
@@ -48,8 +59,8 @@ export class MovieMoodCatalogStack extends Stack {
 				PROVIDERS_TABLE_NAME: importName("ProvidersTableName"),
 				CONFIG_TABLE_NAME: importName("ConfigTableName"),
 				ASSETS_BUCKET_NAME: importName("MovieMoodBucketName"),
-				VECTOR_BUCKET_NAME: importName("VectorBucketName"),
-				VECTOR_INDEX_NAME: importName("VectorIndexName"),
+				VECTOR_BUCKET_NAME: vectorBucketName(props),
+				VECTOR_INDEX_NAME: VECTOR_INDEX_NAME,
 				TMDB_SECRET_ARN: tmdbSecret.secretArn,
 				MOOD_MODEL_ID: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
 				EMBEDDING_MODEL_ID: "amazon.titan-embed-text-v2:0",

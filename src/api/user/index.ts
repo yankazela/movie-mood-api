@@ -45,3 +45,25 @@ export const update = async (event: APIGatewayProxyEvent): Promise<ApiResponse> 
         return errorResponse(error, responseService, "Error updating user");
     }
 };
+
+/**
+ * GET /user/me. Returns the signed-in user's profile, identified by the verified token. This is how
+ * Google and Apple users, who never call the sign-in endpoint, read their profile.
+ */
+export const me = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
+    const responseService = new ResponseService();
+
+    try {
+        const userId = event.requestContext?.authorizer?.claims?.sub as string | undefined;
+
+        if (!userId) {
+            throw new UnauthorizedError("Missing or invalid authorization");
+        }
+
+        const user = await userService.getUser(userId);
+
+        return responseService.success({ user });
+    } catch (error: any) {
+        return errorResponse(error, responseService, "Error fetching user");
+    }
+};

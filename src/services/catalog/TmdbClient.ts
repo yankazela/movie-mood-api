@@ -31,10 +31,19 @@ export interface TmdbReleaseDateEntry {
     release_dates: { certification: string; type: number }[];
 }
 
+export interface TmdbCredits {
+    cast?: { name: string; character?: string; order?: number }[];
+    crew?: { name: string; job?: string }[];
+}
+
 export interface TmdbMovieDetails {
     id: number;
     title: string;
     overview: string;
+    tagline?: string;
+    vote_average?: number;
+    original_language?: string;
+    credits?: TmdbCredits;
     release_date?: string;
     runtime?: number | null;
     genres: TmdbGenre[];
@@ -50,6 +59,11 @@ export interface TmdbTvDetails {
     id: number;
     name: string;
     overview: string;
+    tagline?: string;
+    vote_average?: number;
+    original_language?: string;
+    credits?: TmdbCredits;
+    created_by?: { name: string }[];
     first_air_date?: string;
     episode_run_time?: number[];
     number_of_episodes?: number | null;

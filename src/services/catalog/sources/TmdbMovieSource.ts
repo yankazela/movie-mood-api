@@ -1,5 +1,5 @@
 import { CatalogSource, ICatalogDraft, ICatalogPage, ICatalogRef } from "./CatalogSource";
-import { availabilityFor, genreNames, isDocumentary, providerFrom, slugify, yearOf } from "./tmdbShared";
+import { availabilityFor, castOf, directorOf, genreNames, isDocumentary, providerFrom, slugify, yearOf } from "./tmdbShared";
 import { TmdbClient, TmdbMovieDetails } from "../TmdbClient";
 import { POSTER_SIZE, PROVIDER_LOGO_SIZE } from "../config";
 import { IVideoDetails } from "../domain/items";
@@ -32,7 +32,16 @@ export class TmdbMovieSource implements CatalogSource {
         const mediaType = isDocumentary(movie.genres) ? EMediaType.DOCUMENTARY : EMediaType.MOVIE;
         const genres = genreNames(movie.genres);
         const itemId = buildItemId(mediaType, this.id, movie.id);
-        const details: IVideoDetails = { kind: "film", voteCount: movie.vote_count };
+        const details: IVideoDetails = {
+            kind: "film",
+            voteCount: movie.vote_count,
+            voteAverage: movie.vote_average,
+            overview: movie.overview || undefined,
+            tagline: movie.tagline || undefined,
+            originalLanguage: movie.original_language,
+            director: directorOf(movie.credits),
+            cast: castOf(movie.credits),
+        };
 
         return {
             item: {

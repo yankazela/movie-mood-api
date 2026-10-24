@@ -5,8 +5,12 @@ import { EIdentityProvider, EVote, IIdentity, IUser, IVote } from "../src/servic
 import { UpdateUserRequest } from "../src/services/users/dto/UpdateUserRequest";
 import { isFullyOnboarded } from "../src/services/users/onboarding";
 import { CreateUserRequest } from "../src/services/users/dto/CreateUserRequest";
-import { UserFieldChanges, UserRepository } from "../src/services/users/UserRepository";
+import { UserFieldChanges, UserMapChanges, UserRepository } from "../src/services/users/UserRepository";
 import { UserServiceImpl } from "../src/services/users/UserServiceImpl";
+import { CatalogItemRepository } from "../src/services/catalog/store/CatalogItemRepository";
+import { ICatalogItem } from "../src/services/catalog/domain/items";
+import { EFeedback } from "../src/services/recommendations/domain/types";
+import { EMediaType } from "../src/services/media/MediaType";
 
 class FakeAuthService implements AuthService {
     public created: { email: string; fullName: string; password?: string }[] = [];
@@ -54,16 +58,40 @@ class FakeUserRepository implements UserRepository {
         return this.saved.find(user => user.userId === userId) ?? null;
     }
 
-    async update(userId: string, changes: UserFieldChanges, votes: Record<string, IVote>): Promise<IUser> {
+    async update(userId: string, changes: UserFieldChanges, votes: Record<string, IVote>, mapChanges: UserMapChanges = {}): Promise<IUser> {
         const current = this.saved.find(user => user.userId === userId);
         if (!current) throw new NotFoundError("missing");
         const defined = Object.fromEntries(Object.entries(changes).filter(([, value]) => value !== undefined));
-        Object.assign(current, defined, { votes: { ...current.votes, ...votes } });
+        const remainingVotes = Object.fromEntries(Object.entries(current.votes).filter(([itemId]) => !(mapChanges.removeVotes ?? []).includes(itemId)));
+        Object.assign(current, defined, {
+            votes: { ...remainingVotes, ...votes },
+            ratings: { ...(current.ratings ?? {}), ...(mapChanges.ratings ?? {}) },
+        });
         return current;
     }
 
     async incrementDailyCount(): Promise<number> {
         throw new Error("incrementDailyCount is not exercised by the user service tests");
+    }
+}
+
+class FakeCatalogStore implements CatalogItemRepository {
+    public requested: string[][] = [];
+
+    constructor(private readonly items: ICatalogItem[] = []) {}
+
+    async findByIds(itemIds: string[]): Promise<ICatalogItem[]> {
+        this.requested.push(itemIds);
+        // Reversed so the tests catch a service that relies on the store's order.
+        return this.items.filter(item => itemIds.includes(item.itemId)).reverse();
+    }
+
+    async saveWhy(): Promise<void> {
+        throw new Error("saveWhy is not exercised by the user service tests");
+    }
+
+    async upsertCatalog(): Promise<void> {
+        throw new Error("upsertCatalog is not exercised by the user service tests");
     }
 }
 
@@ -202,6 +230,29 @@ describe("UserServiceImpl onboarding and updates", () => {
         expect(updated.votes["series:tmdb-tv:2"].at).toBeDefined();
     });
 
+    test("stores watched titles and merges ratings, and a vote can be withdrawn without touching the others", async () => {
+        const repository = new FakeUserRepository();
+        const service = new UserServiceImpl(new FakeAuthService(), repository);
+        await service.createProfile(identity);
+
+        await service.updateUser("sub-9", "uuid-9", {
+            watched: ["movie:tmdb-movie:1"],
+            ratings: { "movie:tmdb-movie:1": EFeedback.GOOD },
+            votes: {
+                "movie:tmdb-movie:1": { vote: EVote.UP },
+                "movie:tmdb-movie:2": { vote: EVote.DOWN, requestId: "r2" },
+            },
+        });
+        const updated = await service.updateUser("sub-9", "uuid-9", {
+            ratings: { "movie:tmdb-movie:2": EFeedback.NOT_FOR_ME },
+            removeVotes: ["movie:tmdb-movie:1"],
+        });
+
+        expect(updated.watched).toEqual(["movie:tmdb-movie:1"]);
+        expect(updated.ratings).toEqual({ "movie:tmdb-movie:1": "good", "movie:tmdb-movie:2": "not-for-me" });
+        expect(Object.keys(updated.votes)).toEqual(["movie:tmdb-movie:2"]);
+    });
+
     test("normalises country, trims the name and mirrors a changed name to Cognito", async () => {
         const auth = new FakeAuthService();
         const service = new UserServiceImpl(auth, new FakeUserRepository());
@@ -223,6 +274,40 @@ describe("UserServiceImpl onboarding and updates", () => {
 
         expect(user).toMatchObject({ userId: "sub-9", email: "sam@example.com", fullyOnboarded: true });
         await expect(service.getUser("nobody")).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    test("returns saved movies in myMovies order, with availability for the user's country", async () => {
+        const catalog = new FakeCatalogStore([
+            {
+                itemId: "movie:tmdb-movie:1",
+                mediaType: EMediaType.MOVIE,
+                title: "First",
+                availability: { ZA: { services: ["netflix"], checkedAt: "2026-10-01" }, US: { services: ["hulu"], checkedAt: "2026-10-01" } },
+            },
+            { itemId: "movie:tmdb-movie:2", mediaType: EMediaType.MOVIE, title: "Second", genres: ["drama"] },
+        ]);
+        const service = new UserServiceImpl(new FakeAuthService(), new FakeUserRepository(), catalog);
+        await service.createProfile(identity, { country: "ZA" });
+
+        const updated = await service.updateUser("sub-9", "uuid-9", { myMovies: ["movie:tmdb-movie:2", "movie:tmdb-movie:404", "movie:tmdb-movie:1"] });
+        const fetched = await service.getUser("sub-9");
+
+        for (const user of [updated, fetched]) {
+            expect(user.savedMovies?.map(movie => movie.title)).toEqual(["Second", "First"]);
+            expect(user.savedMovies?.[0].genres).toEqual(["drama"]);
+            expect(user.savedMovies?.[1].availability?.services).toEqual(["netflix"]);
+        }
+    });
+
+    test("skips the catalogue when there are no saved movies", async () => {
+        const catalog = new FakeCatalogStore();
+        const service = new UserServiceImpl(new FakeAuthService(), new FakeUserRepository(), catalog);
+        await service.createProfile(identity);
+
+        const user = await service.getUser("sub-9");
+
+        expect(user.savedMovies).toEqual([]);
+        expect(catalog.requested).toEqual([]);
     });
 
     test("rejects an empty update and an unknown user", async () => {
@@ -249,6 +334,22 @@ describe("UpdateUserRequest.fromBody", () => {
         await expect(UpdateUserRequest.fromBody(JSON.stringify({ votes: { "tmdb:1": { vote: "up", requestId: "r" } } }))).rejects.toThrow(/not a valid item id/);
         await expect(UpdateUserRequest.fromBody(JSON.stringify({ votes: { "movie:tmdb-movie:1": { vote: "meh" } } }))).rejects.toThrow(/vote must be one of/);
         await expect(UpdateUserRequest.fromBody(JSON.stringify({ country: "ZAF" }))).rejects.toThrow(/country/);
+        await expect(UpdateUserRequest.fromBody(JSON.stringify({ myMovies: ["tmdb:1"] }))).rejects.toThrow(/myMovies entry tmdb:1/);
+        await expect(UpdateUserRequest.fromBody(JSON.stringify({ watched: ["tmdb:1"] }))).rejects.toThrow(/watched entry tmdb:1/);
+        await expect(UpdateUserRequest.fromBody(JSON.stringify({ ratings: { "movie:tmdb-movie:1": "meh" } }))).rejects.toThrow(/ratings.movie:tmdb-movie:1 must be one of/);
+        await expect(UpdateUserRequest.fromBody(JSON.stringify({ votes: { "movie:tmdb-movie:1": { vote: "up", requestId: "" } } }))).rejects.toThrow(/requestId/);
+    });
+
+    test("accepts a vote without a request id, watched titles, ratings and vote removals", async () => {
+        const request = await UpdateUserRequest.fromBody(JSON.stringify({
+            votes: { "movie:tmdb-movie:1": { vote: "down" } },
+            watched: ["movie:tmdb-movie:2"],
+            ratings: { "movie:tmdb-movie:2": "perfect" },
+            removeVotes: ["movie:tmdb-movie:3"],
+        }));
+
+        expect(request.watched).toEqual(["movie:tmdb-movie:2"]);
+        expect(request.removeVotes).toEqual(["movie:tmdb-movie:3"]);
     });
 });
 

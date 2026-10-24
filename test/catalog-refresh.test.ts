@@ -274,6 +274,22 @@ class FakeTmdb implements TmdbClient {
 const providersZa = { results: { ZA: { link: "https://tmdb/watch", flatrate: [{ provider_id: 8, provider_name: "Netflix", logo_path: "/n.png" }] } } };
 
 describe("TmdbMovieSource", () => {
+    test("keeps the overview, audience score, language, director and top-billed cast", async () => {
+        const movie: TmdbMovieDetails = {
+            id: 8, title: "Film", overview: "A film.", tagline: "", vote_average: 7.4, original_language: "fr", genres: [{ id: 35, name: "Comedy" }],
+            popularity: 1, vote_count: 3, poster_path: null, "watch/providers": providersZa,
+            credits: { cast: Array.from({ length: 9 }, (_, order) => ({ name: `Actor ${order}`, character: `Role ${order}`, order })), crew: [{ name: "Grip", job: "Grip" }, { name: "Dana", job: "Director" }] },
+        };
+        const source = new TmdbMovieSource(new FakeTmdb(movie), new FakeAssets());
+
+        const result = await source.fetch({ sourceId: "8" }, ["ZA"], "t");
+        const details = result?.item.details as { cast: unknown[]; tagline?: string };
+
+        expect(result?.item.details).toMatchObject({ overview: "A film.", voteAverage: 7.4, originalLanguage: "fr", director: "Dana" });
+        expect(details.cast).toHaveLength(6);
+        expect(details.tagline).toBeUndefined();
+    });
+
     test("types a film with the Documentary genre as a documentary and builds a routable id", async () => {
         const movie: TmdbMovieDetails = {
             id: 7, title: "Doc", overview: "o", release_date: "2019-03-02", runtime: 95, genres: [{ id: 99, name: "Documentary" }],
@@ -294,6 +310,22 @@ describe("TmdbMovieSource", () => {
 });
 
 describe("TmdbTvSource", () => {
+    test("keeps the overview, audience score, language, creators and cast the app shows on a details page", async () => {
+        const show: TmdbTvDetails = {
+            id: 5, name: "Show", overview: "A show.", tagline: "Watch it", vote_average: 8.1, original_language: "en",
+            created_by: [{ name: "Ann" }, { name: "Bo" }], credits: { cast: [{ name: "Second", character: "B", order: 1 }, { name: "First", character: "A", order: 0 }] },
+            genres: [{ id: 18, name: "Drama" }], popularity: 1, vote_count: 9, poster_path: null, "watch/providers": providersZa,
+        };
+        const source = new TmdbTvSource(new FakeTmdb(undefined, show), new FakeAssets());
+
+        const result = await source.fetch({ sourceId: "5" }, ["ZA"], "t");
+
+        expect(result?.item.details).toMatchObject({
+            overview: "A show.", tagline: "Watch it", voteAverage: 8.1, originalLanguage: "en", director: "Ann, Bo",
+            cast: [{ name: "First", character: "A" }, { name: "Second", character: "B" }],
+        });
+    });
+
     test("types a drama show as a series, uses the typical episode length as runtime and reads content ratings", async () => {
         const show: TmdbTvDetails = {
             id: 1399, name: "Show", overview: "o", first_air_date: "2011-04-17", episode_run_time: [50, 60], number_of_episodes: 73, number_of_seasons: 8,

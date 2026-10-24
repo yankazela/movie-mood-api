@@ -90,6 +90,12 @@ describe("rerank and selectDiverse", () => {
         expect(ranked[0].itemId).toBe("drama");
     });
 
+    test("leaves out titles the user has already watched", () => {
+        const ranked = rerank([candidate("seen"), candidate("new")], { genrePrefs: {}, votes: {}, watched: ["seen"] });
+
+        expect(ranked.map(item => item.itemId)).toEqual(["new"]);
+    });
+
     test("limits how many titles share a primary genre", () => {
         const ranked = rerank(
             ["c1", "c2", "c3", "d1", "d2", "d3"].map(id =>
@@ -142,10 +148,12 @@ class FakeUserRepository implements UserRepository {
 
 class FakeMoodResolver implements MoodResolver {
     public readonly name = "fake";
+    public texts: string[] = [];
 
     constructor(private readonly profile: IMoodProfile) {}
 
-    async resolve(): Promise<IMoodProfile> {
+    async resolve(text: string): Promise<IMoodProfile> {
+        this.texts.push(text);
         return this.profile;
     }
 }
@@ -173,13 +181,17 @@ class FakeRetriever implements CandidateRetriever {
 class FakeCatalogStore implements CatalogItemRepository {
     public savedWhy: { itemId: string; key: string; entry: IWhyEntry }[] = [];
 
+    constructor(private readonly details: Record<string, Record<string, unknown>> = {}) {}
+
     async findByIds(itemIds: string[]): Promise<ICatalogItem[]> {
         return itemIds.map(itemId => ({
             itemId,
             mediaType: EMediaType.MOVIE,
             title: `Title ${itemId}`,
             genres: ["comedy"],
+            rating: { ZA: "13" },
             availability: { ZA: { services: ["netflix"], checkedAt: "2026-10-01T00:00:00Z" } },
+            details: this.details[itemId],
         }));
     }
 
@@ -228,15 +240,17 @@ function build(overrides: {
     mood?: IMoodProfile;
     stages?: ICandidate[][];
     dailyCap?: number;
+    details?: Record<string, Record<string, unknown>>;
 } = {}) {
     const userRepository = new FakeUserRepository(overrides.user === undefined ? profile : overrides.user);
     const embedder = new FakeEmbedder();
     const retriever = new FakeRetriever(overrides.stages ?? [manyCandidates(40)]);
-    const catalogStore = new FakeCatalogStore();
+    const catalogStore = new FakeCatalogStore(overrides.details);
     const requestRepository = new FakeRequestRepository();
+    const moodResolver = new FakeMoodResolver(overrides.mood ?? drained);
     const service = new RecommendationServiceImpl({
         userRepository,
-        moodResolver: new FakeMoodResolver(overrides.mood ?? drained),
+        moodResolver,
         embedder,
         candidateRetriever: retriever,
         catalogStore,
@@ -245,7 +259,7 @@ function build(overrides: {
         dailyCap: overrides.dailyCap ?? 20,
     });
 
-    return { service, userRepository, embedder, retriever, catalogStore, requestRepository };
+    return { service, userRepository, embedder, retriever, catalogStore, requestRepository, moodResolver };
 }
 
 describe("RecommendationServiceImpl.recommend", () => {
@@ -261,7 +275,12 @@ describe("RecommendationServiceImpl.recommend", () => {
         expect(embedder.sentences[0]).toContain("gently positive");
 
         expect(retriever.calls).toHaveLength(1);
-        expect(retriever.calls[0]).toEqual({ mediaTypes: ["movie", "series", "documentary"], country: "ZA", services: ["netflix"], ratingsAllowed: ["PG", "PG-13"], maxRuntimeMin: 120 });
+        expect(retriever.calls[0]).toMatchObject({ mediaTypes: ["movie", "series", "documentary"], country: "ZA", maxRuntimeMin: 120 });
+        expect(retriever.calls[0].services).toContain("netflix");
+        // The profile's MPAA-style ceiling becomes South Africa's own certifications.
+        expect(retriever.calls[0].ratingsAllowed).toEqual(expect.arrayContaining(["PG", "13"]));
+        expect(retriever.calls[0].ratingsAllowed).not.toContain("16");
+        expect(result.results[0].matchScore).toBeGreaterThan(0);
 
         expect(requestRepository.saved).toHaveLength(1);
         const saved = requestRepository.saved[0];
@@ -327,10 +346,10 @@ describe("RecommendationServiceImpl.recommend", () => {
 
         const result = await service.recommend({ userId: "sub-1", text: "tired", objective: EObjective.IMPROVE });
 
-        expect(retriever.calls.map(call => [call.maxRuntimeMin, call.ratingsAllowed])).toEqual([
-            [120, ["PG", "PG-13"]],
-            [undefined, ["PG", "PG-13"]],
-            [undefined, []],
+        expect(retriever.calls.map(call => [call.maxRuntimeMin, call.ratingsAllowed.length > 0])).toEqual([
+            [120, true],
+            [undefined, true],
+            [undefined, false],
         ]);
         expect(result.results).toHaveLength(8);
         expect(result.notice).toBeUndefined();
@@ -343,5 +362,60 @@ describe("RecommendationServiceImpl.recommend", () => {
 
         expect(result.results).toHaveLength(3);
         expect(result.notice).toBe("few_matches");
+    });
+
+    test("hands the ticked moods to the mood resolver and keeps them on the request", async () => {
+        const { service, moodResolver, requestRepository } = build();
+
+        await service.recommend({ userId: "sub-1", text: "long day", objective: EObjective.KEEP, moods: ["tired", "stressed"] });
+
+        expect(moodResolver.texts[0]).toBe("long day\nMoods I selected: tired, stressed");
+        expect(requestRepository.saved[0]).toMatchObject({ text: "long day", moods: ["tired", "stressed"] });
+    });
+
+    test("turns the app's filters into retrieval constraints, using the tighter runtime", async () => {
+        const { service, retriever, requestRepository } = build();
+        const filters = { maxRuntimeMin: 90, genres: ["science-fiction", "comedy"], releaseYearMin: 2010 };
+
+        await service.recommend({ userId: "sub-1", text: "tired", objective: EObjective.KEEP, filters });
+
+        expect(retriever.calls[0]).toMatchObject({
+            maxRuntimeMin: 90,
+            genres: ["science fiction", "sci-fi & fantasy", "comedy"],
+            minYear: 2010,
+        });
+        expect(requestRepository.saved[0].filters).toEqual(filters);
+    });
+
+    test("drops titles below the asked-for score or in another language, but keeps ones with no data", async () => {
+        const { service } = build({
+            stages: [manyCandidates(10)],
+            details: {
+                m0: { voteAverage: 5.1, originalLanguage: "en" },
+                m1: { voteAverage: 8.2, originalLanguage: "fr" },
+                m2: { voteAverage: 8.2, originalLanguage: "en" },
+            },
+        });
+
+        const result = await service.recommend({
+            userId: "sub-1",
+            text: "tired",
+            objective: EObjective.KEEP,
+            filters: { minRating: 7, language: "en" },
+        });
+        const ids = result.results.map(item => item.itemId);
+
+        expect(ids).not.toContain("m0");
+        expect(ids).not.toContain("m1");
+        expect(ids).toContain("m2");
+        expect(ids).toContain("m3");
+    });
+
+    test("returns the content rating for the user's country on each result", async () => {
+        const { service } = build();
+
+        const result = await service.recommend({ userId: "sub-1", text: "tired", objective: EObjective.KEEP });
+
+        expect(result.results[0].rating).toBe("13");
     });
 });

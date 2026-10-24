@@ -1,5 +1,5 @@
 import { CatalogSource, ICatalogDraft, ICatalogPage, ICatalogRef } from "./CatalogSource";
-import { availabilityFor, genreNames, isDocumentary, providerFrom, yearOf } from "./tmdbShared";
+import { availabilityFor, castOf, genreNames, isDocumentary, providerFrom, yearOf } from "./tmdbShared";
 import { TmdbClient, TmdbTvDetails } from "../TmdbClient";
 import { POSTER_SIZE, PROVIDER_LOGO_SIZE } from "../config";
 import { IVideoDetails } from "../domain/items";
@@ -35,8 +35,14 @@ export class TmdbTvSource implements CatalogSource {
         const details: IVideoDetails = {
             kind: "show",
             voteCount: show.vote_count,
+            voteAverage: show.vote_average,
             episodeCount: show.number_of_episodes ?? undefined,
             seasonCount: show.number_of_seasons ?? undefined,
+            overview: show.overview || undefined,
+            tagline: show.tagline || undefined,
+            originalLanguage: show.original_language,
+            director: show.created_by?.map(creator => creator.name).join(", ") || undefined,
+            cast: castOf(show.credits),
         };
 
         return {

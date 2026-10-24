@@ -17,8 +17,9 @@ import {
     UsernameExistsException,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { AuthService } from "./AuthService";
+import { TokenRefresher } from "./TokenRefresher";
 import { CognitoUserAttributes, identityFromCognitoUser } from "./CognitoIdentity";
-import { EAuthChallenge, ICompleteNewPasswordInput, ISignInInput, ISignInResult } from "./domain/types";
+import { EAuthChallenge, IAuthenticated, ICompleteNewPasswordInput, ISignInInput, ISignInResult } from "./domain/types";
 import { IIdentity } from "../users/domain/types";
 import { UnauthorizedError, UserAlreadyExistsError, ValidationError } from "../common/errors";
 
@@ -29,7 +30,7 @@ interface CognitoAuthOutput {
     AuthenticationResult?: AuthenticationResultType;
 }
 
-export class AuthServiceImpl implements AuthService {
+export class AuthServiceImpl implements AuthService, TokenRefresher {
     private readonly client: CognitoIdentityProviderClient;
     private readonly userPoolId: string;
     private readonly clientId: string;
@@ -118,6 +119,37 @@ export class AuthServiceImpl implements AuthService {
             return this.toSignInResult(result, email);
         } catch (error) {
             throw this.translate(error, email);
+        }
+    }
+
+    public async refresh(refreshToken: string): Promise<IAuthenticated> {
+        try {
+            const result = await this.client.send(new AdminInitiateAuthCommand({
+                UserPoolId: this.userPoolId,
+                ClientId: this.clientId,
+                AuthFlow: "REFRESH_TOKEN_AUTH",
+                AuthParameters: { REFRESH_TOKEN: refreshToken },
+            }));
+            const tokens = result.AuthenticationResult;
+
+            if (!tokens?.IdToken || !tokens.AccessToken) {
+                throw new Error("Cognito returned no tokens for the refresh token");
+            }
+
+            return {
+                outcome: "authenticated",
+                userId: subjectOf(tokens.IdToken),
+                tokens: {
+                    idToken: tokens.IdToken,
+                    accessToken: tokens.AccessToken,
+                    // Cognito keeps the same refresh token; hand it back so callers can store the set as one.
+                    refreshToken: tokens.RefreshToken ?? refreshToken,
+                    expiresIn: tokens.ExpiresIn ?? 3600,
+                    tokenType: tokens.TokenType ?? "Bearer",
+                },
+            };
+        } catch (error) {
+            throw this.translate(error, "the signed-in user");
         }
     }
 

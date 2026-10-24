@@ -1,3 +1,5 @@
+import { EFeedback, IRecommendedItem } from "../../recommendations/domain/types";
+
 export enum EIdentityProvider {
     COGNITO = "cognito",
     GOOGLE = "google",
@@ -9,10 +11,10 @@ export enum EVote {
     DOWN = "down",
 }
 
-/** A thumbs vote on an item, carrying the request that recommended it so the two can be joined. */
+/** A thumbs vote on an item, carrying the request that recommended it (when there was one) so the two can be joined. */
 export interface IVote {
     vote: EVote;
-    requestId: string;
+    requestId?: string;
     at: string;
 }
 
@@ -31,6 +33,12 @@ export interface IUser {
     genrePrefs: Record<string, number>;
     /** Item id to the user's thumbs vote. */
     votes: Record<string, IVote>;
+    /** Item ids of movies the user has saved. */
+    myMovies?: string[];
+    /** Item ids of titles the user has watched. */
+    watched?: string[];
+    /** Item id to how the user rated the title. */
+    ratings?: Record<string, EFeedback>;
     /** When the profile first became fully onboarded. */
     onboardedAt?: string;
     createdAt: string;
@@ -40,6 +48,8 @@ export interface IUser {
     dailyCountDate?: string;
     /** True when services, ratingsAllowed and genrePrefs are all non-empty. See isFullyOnboarded. */
     fullyOnboarded: boolean;
+
+    savedMovies?: IRecommendedItem[];
 }
 
 /** Profile details a user may supply when the profile is created. All optional until onboarding. */
@@ -61,7 +71,7 @@ export interface ICreateUserInput extends IProfileInput {
 /** A thumbs vote as sent by the client; the server stamps `at`. */
 export interface IVoteInput {
     vote: EVote;
-    requestId: string;
+    requestId?: string;
 }
 
 /** Fields a user may change on their profile. Omitted fields are left as they are. */
@@ -74,6 +84,14 @@ export interface IUpdateUserInput {
     genrePrefs?: Record<string, number>;
     /** Merged into the existing votes, one entry per item id; other votes are kept. */
     votes?: Record<string, IVoteInput>;
+    /** Replaces the whole list. */
+    myMovies?: string[];
+    /** Replaces the whole list. */
+    watched?: string[];
+    /** Merged into the existing ratings, one entry per item id. */
+    ratings?: Record<string, EFeedback>;
+    /** Item ids whose thumbs vote is withdrawn. */
+    removeVotes?: string[];
 }
 
 /** An identity that exists in the auth provider, however it got there. */

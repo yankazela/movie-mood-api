@@ -18,8 +18,17 @@ export interface IAvailability {
 export type IVideoDetails = {
     kind: "film" | "show";
     voteCount?: number;
+    /** Average audience score, 0 to 10. */
+    voteAverage?: number;
     episodeCount?: number;
     seasonCount?: number;
+    overview?: string;
+    tagline?: string;
+    /** ISO 639-1 code of the original language. */
+    originalLanguage?: string;
+    /** A film's director, or a series' creators. */
+    director?: string;
+    cast?: { name: string; character?: string }[];
 };
 
 /**

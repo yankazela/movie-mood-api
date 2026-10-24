@@ -18,9 +18,10 @@ export interface UserService {
     /**
      * Applies a partial profile update and recomputes fullyOnboarded. `username` is the caller's
      * Cognito username, used to keep the provider's display name in step when fullName changes.
+     * Returns the updated profile with its saved movies.
      */
     updateUser(userId: string, username: string | undefined, input: IUpdateUserInput): Promise<IUser>;
 
-    /** The user's profile. Throws NotFoundError when it does not exist. */
+    /** The user's profile with its saved movies. Throws NotFoundError when it does not exist. */
     getUser(userId: string): Promise<IUser>;
 }
