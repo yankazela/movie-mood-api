@@ -1,0 +1,174 @@
+cdk/lib/infrastructure/storages-stack.ts
+  s_084643c2e87912::t_0e808ad91a1e7f 84
+  s_0b6a9714c22355::t_ec850b3898e4ab 9,111-112,132
+  s_084643c2e87912::t_1bba1b85e015e8 4,82-83,89-96,102-105
+  s_084643c2e87912::t_9e1c52072c3761 106-107
+src/services/users/domain/types.ts
+  s_084643c2e87912::t_4b06328826313f 36-37,87-88
+  s_ce1c6b45a0582a::t_fc871bbf65fb0b 1-2,14,17,38-41,51-52,74,89-94
+src/services/auth/dto/RefreshRequest.ts
+  s_ce1c6b45a0582a::t_a16359341540c6 1-8
+src/services/users/UserServiceImpl.ts
+  s_084643c2e87912::t_fe021fab7eeade 11,144-145,153-159,161
+  s_ce1c6b45a0582a::t_cd6e43c1320e62 5,96,101-102,104,121,160
+  s_084643c2e87912::t_99d8bb2c7b580f 3-4,18,23,27,130,141-143,146-152,162-163
+  s_ce1c6b45a0582a::t_3c1def4b9953f1 95
+src/services/catalog/sources/tmdbShared.ts
+  s_ce1c6b45a0582a::t_c481339dd8801d 1,21-34
+  s_ce1c6b45a0582a::t_a86da31d89eff1 35
+src/services/recommendations/HistoryService.ts
+  s_ce1c6b45a0582a::t_8a64153e070263 1-30
+test/preferences.test.ts
+  s_ce1c6b45a0582a::t_421f5686f5e952 1-75
+src/services/auth/TokenRefresher.ts
+  s_ce1c6b45a0582a::t_71b7b09cc6c1aa 1-7
+test/auth-service.test.ts
+  s_ce1c6b45a0582a::t_4e03c63f775ab9 90-113
+src/api/common/request.ts
+  s_ce1c6b45a0582a::t_aff4bb3a86e5a9 1-81
+src/services/recommendations/RequestHistoryRepository.ts
+  s_ce1c6b45a0582a::t_965170dd1c06fa 1-18
+src/services/recommendations/domain/types.ts
+  s_ce1c6b45a0582a::t_bba9725e0b3953 16-23,59-73,106-111
+  s_ce1c6b45a0582a::t_88aca36201dc94 126-127,143-147
+src/services/recommendations/dto/RecordOutcomeRequest.ts
+  s_ce1c6b45a0582a::t_ae7c75679ea73c 1-37
+cdk/lib/app/movie-mood-stack.ts
+  s_084643c2e87912::t_efaf1f29f982cc 90-96,132,137,153,158,168,202-203,233,286
+  s_0b6a9714c22355::t_ec850b3898e4ab 6,222-224,237-238
+  s_0b6a9714c22355::t_855eba1b7300ab 147-152,154-157,159-163,285,287
+  s_ce1c6b45a0582a::t_23a933f6f9f2d1 186-198,212-214,267,273
+  s_ce1c6b45a0582a::t_98087af5834cb7 18-19
+  s_ce1c6b45a0582a::t_17c69cfad17e1f 17
+  s_ce1c6b45a0582a::t_4b2c5706b2f71d 264-266
+  s_ce1c6b45a0582a::t_41872128997ae7 268-272
+  s_0b6a9714c22355::t_fbfa5013e5435f 288-290
+test/s3vectors-retriever.test.ts
+  s_ce1c6b45a0582a::t_217ddf7b6f56bb 26-38
+src/services/auth/AuthServiceImpl.ts
+  s_ce1c6b45a0582a::t_11e7deb5afbb85 125-155
+  s_ce1c6b45a0582a::t_df15128541bb30 20,22,33
+cdk/lib/shared/vector-store.ts
+  s_0b6a9714c22355::t_ec850b3898e4ab 1-21
+test/catalog-browse.test.ts
+  s_ce1c6b45a0582a::t_8a5d577945c3df 1-108,110-167,169-195
+  s_ce1c6b45a0582a::t_411797d5dd6970 109,168
+src/api/movies/index.ts
+  s_ce1c6b45a0582a::t_bc520c7ba79e0b 1-87
+src/services/catalog/DynamoCatalogScannerImpl.ts
+  s_ce1c6b45a0582a::t_6b3dd3d84bc0cc 1-45
+src/services/recommendations/HistoryServiceImpl.ts
+  s_ce1c6b45a0582a::t_8944a55053c3a4 1-84
+src/services/recommendations/dto/RecommendRequest.ts
+  s_ce1c6b45a0582a::t_308b0905be3020 1-15,35-83
+src/api/recommendations/index.ts
+  s_ce1c6b45a0582a::t_81d4e02b786a89 4,6,8,10,12,14,25,27-33,39,43-44,52-82
+cdk/lib/infrastructure/web-stack.ts
+  s_ce1c6b45a0582a::t_75d24e4c6cc660 2,31
+  s_ce1c6b45a0582a::t_35f66fbb71b6e2 1,3-30,32-43
+src/services/recommendations/preferences.ts
+  s_ce1c6b45a0582a::t_0b549059d7c71f 72-76,79-91
+  s_ce1c6b45a0582a::t_6b93a74912aca9 1-71
+  s_ce1c6b45a0582a::t_d7a6e375675cbe 77-78
+src/services/catalog/sources/TmdbTvSource.ts
+  s_ce1c6b45a0582a::t_c481339dd8801d 2,38,41-45
+cdk/lib/infrastructure/auth-stack.ts
+  s_0b6a9714c22355::t_e6374f5427c3ad 26,34
+  s_0b6a9714c22355::t_28ec8cd8365127 44-45
+  s_0b6a9714c22355::t_79a2e608982cd7 2,24-25,29-33,36-38,53-69,79-89,93
+  s_0b6a9714c22355::t_e7e4c8da9f3f34 3
+  s_0b6a9714c22355::t_17910c0d52a099 23
+  s_0b6a9714c22355::t_237ec4229de655 27-28
+  s_0b6a9714c22355::t_116d2821d235ba 35
+  s_0b6a9714c22355::t_97ef448f4f83ab 90-92
+  s_0b6a9714c22355::t_755e167307260f 94-96
+src/api/user/index.ts
+  s_0b6a9714c22355::t_855eba1b7300ab 48-69
+src/services/recommendations/RecommendationServiceImpl.ts
+  s_ce1c6b45a0582a::t_0d8ec6810466a6 16,32,37
+  s_ce1c6b45a0582a::t_4314eebddcf0c8 179
+  s_ce1c6b45a0582a::t_6cff346d9528b0 100-101,103-104,119-122,124,137,139,159-160,177,184-187,204-233
+src/services/recommendations/ranking.ts
+  s_ce1c6b45a0582a::t_4314eebddcf0c8 11-12,17,20-21
+README.md
+  s_084643c2e87912::t_e7e1df55b424fe 1-5
+  s_084643c2e87912::t_beea4a7c78d7b7 6-8
+src/services/users/UserService.ts
+  s_084643c2e87912::t_efaf1f29f982cc 21
+  s_084643c2e87912::t_99d8bb2c7b580f 25
+cdk/lib/app/catalog-stack.ts
+  s_0b6a9714c22355::t_ec850b3898e4ab 12,28-29,62-63
+  s_0b6a9714c22355::t_e6374f5427c3ad 37-38
+  s_0b6a9714c22355::t_79a2e608982cd7 31-36,41,45
+  s_0b6a9714c22355::t_f38d1014a73db6 2,39-40
+src/services/catalog/TmdbClientImpl.ts
+  s_ce1c6b45a0582a::t_c481339dd8801d 43,49
+src/api/auth/index.ts
+  s_ce1c6b45a0582a::t_db9cc12e1a69be 7-8,12-13,46-57
+  s_ce1c6b45a0582a::t_a1ecfa360d720f 58-59
+src/services/catalog/CatalogScanner.ts
+  s_ce1c6b45a0582a::t_d3cbc6e1e43046 1-7
+src/services/users/dto/UpdateUserRequest.ts
+  s_ce1c6b45a0582a::t_ec6e6265a26c9a 13,51-72,76-83,99,102,106-125,130,149-150
+  s_084643c2e87912::t_99d8bb2c7b580f 100-101,103-105,126-129
+  s_ce1c6b45a0582a::t_14d472778c3348 131
+src/services/catalog/CatalogBrowseServiceImpl.ts
+  s_ce1c6b45a0582a::t_e48461eef8bb3e 1-190
+src/services/users/UserRepositoryImpl.ts
+  s_ce1c6b45a0582a::t_d1ce2ec481ec4d 3,46,50-51,68-81,84-106,111,114
+test/recommendations.test.ts
+  s_ce1c6b45a0582a::t_cf4baaab4e671a 151,155-156,184-185,192,194,243,248,250,253,262,366-419
+  s_ce1c6b45a0582a::t_9fec5092249461 278-283,349-352
+  s_ce1c6b45a0582a::t_f8e49f007baf03 420
+test/user-service.test.ts
+  s_ce1c6b45a0582a::t_eba464d8e92ecc 8,61,65-69
+  s_ce1c6b45a0582a::t_e2d571f51781d6 12,233-255,338-352
+  s_084643c2e87912::t_42eda55308a16a 10-11,13,78-97,279-312,337
+src/services/catalog/TmdbClient.ts
+  s_ce1c6b45a0582a::t_c481339dd8801d 34-38,43-46,62-66
+src/services/recommendations/S3VectorsCandidateRetrieverImpl.ts
+  s_ce1c6b45a0582a::t_fdc99378ca6eec 69-76
+src/services/catalog/sources/TmdbMovieSource.ts
+  s_ce1c6b45a0582a::t_c481339dd8801d 2,35-44
+src/services/catalog/domain/items.ts
+  s_ce1c6b45a0582a::t_c481339dd8801d 21-22,25-31
+src/services/recommendations/RequestRepositoryImpl.ts
+  s_ce1c6b45a0582a::t_bfa5b6e9434145 1-2,4,6,8,28-57,63-68,70-74
+  s_ce1c6b45a0582a::t_8319bd7107df66 58-62,69
+src/services/catalog/CatalogBrowseService.ts
+  s_ce1c6b45a0582a::t_048e2353f71c36 1-35
+src/services/users/UserRepository.ts
+  s_ce1c6b45a0582a::t_fc871bbf65fb0b 2,5-11,21-22,24
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f5100eb4807e783e10d783c8a520a9a7917442b7",
+  "prompts": {},
+  "sessions": {
+    "s_084643c2e87912": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "f8dd6bdb-05ca-4ae6-be9d-a82db7a2761c",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Yanick Kazadi <yanickkazadi@Mac.cgocable.net>"
+    },
+    "s_0b6a9714c22355": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b43beefb-2459-41d4-a044-ae2bdab03e29",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Yanick Kazadi <yanickkazadi@Mac.cgocable.net>"
+    },
+    "s_ce1c6b45a0582a": {
+      "agent_id": {
+        "tool": "github-copilot",
+        "id": "c2528f76-97c7-4b25-b926-a03cd2b51419",
+        "model": "copilot/claude-sonnet-5.5"
+      },
+      "human_author": "Yanick Kazadi <yanickkazadi@Mac.cgocable.net>"
+    }
+  }
+}
