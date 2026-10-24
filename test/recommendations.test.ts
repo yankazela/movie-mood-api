@@ -19,6 +19,8 @@ import { CatalogItemRepository } from "../src/services/catalog/store/CatalogItem
 import { EMediaType } from "../src/services/media/MediaType";
 import { UserRepository } from "../src/services/users/UserRepository";
 import { EIdentityProvider, EVote, IUser } from "../src/services/users/domain/types";
+import { EPlan } from "../src/services/billing/domain/types";
+import { DailyCaps, nextUtcMidnight } from "../src/services/billing/plans";
 
 const drained: IMoodProfile = {
     primary_emotion: "drained",
@@ -126,7 +128,10 @@ describe("relaxationStages", () => {
 });
 
 class FakeUserRepository implements UserRepository {
-    public increments: { userId: string; today: string }[] = [];
+    public reservations: { userId: string; today: string; cap: number }[] = [];
+    public releases: { userId: string; today: string }[] = [];
+    /** Simulates another request taking the last slot between the profile read and the reservation. */
+    public full = false;
 
     constructor(public user: IUser | null) {}
 
@@ -140,9 +145,29 @@ class FakeUserRepository implements UserRepository {
         throw new Error("update is not exercised by the recommendation tests");
     }
 
-    async incrementDailyCount(userId: string, today: string): Promise<number> {
-        this.increments.push({ userId, today });
-        return 1;
+    async reserveDailyRequest(userId: string, today: string, cap: number): Promise<number | null> {
+        this.reservations.push({ userId, today, cap });
+
+        if (!this.user || this.full) return null;
+
+        const used = this.user.dailyCountDate === today ? this.user.dailyCount : 0;
+
+        if (used >= cap) return null;
+
+        this.user = { ...this.user, dailyCount: used + 1, dailyCountDate: today };
+        return used + 1;
+    }
+
+    async releaseDailyRequest(userId: string, today: string): Promise<void> {
+        this.releases.push({ userId, today });
+
+        if (this.user?.dailyCountDate === today) {
+            this.user = { ...this.user, dailyCount: Math.max(0, this.user.dailyCount - 1) };
+        }
+    }
+
+    async setPlan(): Promise<IUser> {
+        throw new Error("setPlan is not exercised by the recommendation tests");
     }
 }
 
@@ -169,11 +194,16 @@ class FakeEmbedder implements Embedder {
 
 class FakeRetriever implements CandidateRetriever {
     public calls: IRetrievalFilters[] = [];
+    /** When set, every retrieval fails with this error. */
+    public failWith?: Error;
 
     constructor(private readonly perStage: ICandidate[][]) {}
 
     async retrieve(_vector: number[], filters: IRetrievalFilters): Promise<ICandidate[]> {
         this.calls.push(filters);
+
+        if (this.failWith) throw this.failWith;
+
         return this.perStage[Math.min(this.calls.length - 1, this.perStage.length - 1)] ?? [];
     }
 }
@@ -239,7 +269,7 @@ function build(overrides: {
     user?: IUser | null;
     mood?: IMoodProfile;
     stages?: ICandidate[][];
-    dailyCap?: number;
+    dailyCaps?: DailyCaps;
     details?: Record<string, Record<string, unknown>>;
 } = {}) {
     const userRepository = new FakeUserRepository(overrides.user === undefined ? profile : overrides.user);
@@ -256,7 +286,7 @@ function build(overrides: {
         catalogStore,
         explanationService: new FakeExplanationService(),
         requestRepository,
-        dailyCap: overrides.dailyCap ?? 20,
+        dailyCaps: overrides.dailyCaps ?? { [EPlan.FREE]: 2, [EPlan.ADVANCED]: 15 },
     });
 
     return { service, userRepository, embedder, retriever, catalogStore, requestRepository, moodResolver };
@@ -288,11 +318,16 @@ describe("RecommendationServiceImpl.recommend", () => {
         expect(saved.requestId).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
         expect(saved.resultIds).toHaveLength(8);
         expect(saved.ttl - Math.floor(Date.parse(saved.requestedAt) / 1000)).toBe(90 * 24 * 60 * 60);
-        expect(userRepository.increments).toEqual([{ userId: "sub-1", today: saved.requestedAt.slice(0, 10) }]);
+
+        // The request slot is taken on the free plan's cap and kept, and the result says where the user stands.
+        const today = saved.requestedAt.slice(0, 10);
+        expect(userRepository.reservations).toEqual([{ userId: "sub-1", today, cap: 2 }]);
+        expect(userRepository.releases).toEqual([]);
+        expect(result.usage).toEqual({ plan: "free", used: 1, limit: 2, remaining: 1, resetsAt: nextUtcMidnight(new Date(saved.requestedAt)) });
     });
 
     test("stops with a safety error and ranks nothing when the mood raises a safety flag", async () => {
-        const { service, retriever, requestRepository } = build({
+        const { service, retriever, requestRepository, userRepository } = build({
             mood: { ...drained, safety_flag: true, supportive_message: "You matter. Please reach out to someone you trust." },
         });
 
@@ -303,19 +338,72 @@ describe("RecommendationServiceImpl.recommend", () => {
 
         expect(retriever.calls).toHaveLength(0);
         expect(requestRepository.saved).toHaveLength(0);
+        // The slot taken up front is handed back, so a flagged request costs the user nothing.
+        expect(userRepository.reservations).toHaveLength(2);
+        expect(userRepository.releases).toHaveLength(2);
+        expect(userRepository.user?.dailyCount).toBe(0);
     });
 
-    test("enforces the daily cap using today's counter only", async () => {
+    test("caps each plan at its own daily limit, counting today's requests only", async () => {
         const today = new Date().toISOString().slice(0, 10);
-        const capped = build({ user: { ...profile, dailyCount: 20, dailyCountDate: today } });
+        const ask = { userId: "sub-1", text: "tired", objective: EObjective.KEEP };
+        const freeAtCap = build({ user: { ...profile, dailyCount: 2, dailyCountDate: today } });
 
-        await expect(capped.service.recommend({ userId: "sub-1", text: "tired", objective: EObjective.KEEP }))
+        await expect(freeAtCap.service.recommend(ask)).rejects.toMatchObject({
+            name: "RateLimitError",
+            statusCode: 429,
+            message: "You've used your 2 free requests for today. Upgrade to Advanced for 15 a day, or come back tomorrow.",
+            details: { code: "daily_limit_reached", plan: "free", limit: 2, used: 2, resetsAt: expect.stringMatching(/T00:00:00\.000Z$/) },
+        });
+        // Rejected from the profile alone: no write, no model call.
+        expect(freeAtCap.userRepository.reservations).toHaveLength(0);
+        expect(freeAtCap.moodResolver.texts).toHaveLength(0);
+
+        const freeYesterday = build({ user: { ...profile, dailyCount: 2, dailyCountDate: "2000-01-01" } });
+
+        await expect(freeYesterday.service.recommend(ask)).resolves.toMatchObject({ usage: { plan: "free", used: 1, limit: 2, remaining: 1 } });
+
+        const advanced: IUser = { ...profile, plan: EPlan.ADVANCED, planExpiresAt: "2999-01-01T00:00:00.000Z", dailyCount: 2, dailyCountDate: today };
+
+        await expect(build({ user: advanced }).service.recommend(ask)).resolves.toMatchObject({ usage: { plan: "advanced", used: 3, limit: 15, remaining: 12 } });
+        await expect(build({ user: { ...advanced, dailyCount: 15 } }).service.recommend(ask)).rejects.toMatchObject({
+            message: "You've used all 15 requests for today. Come back tomorrow.",
+            details: { plan: "advanced", limit: 15 },
+        });
+
+        // A lapsed subscription is capped like a free one.
+        await expect(build({ user: { ...advanced, planExpiresAt: "2000-01-01T00:00:00.000Z" } }).service.recommend(ask))
             .rejects.toBeInstanceOf(RateLimitError);
+    });
 
-        const yesterday = build({ user: { ...profile, dailyCount: 20, dailyCountDate: "2000-01-01" } });
+    test("takes the caps from its dependencies", async () => {
+        const today = new Date().toISOString().slice(0, 10);
+        const custom = build({ user: { ...profile, dailyCount: 4, dailyCountDate: today }, dailyCaps: { [EPlan.FREE]: 5, [EPlan.ADVANCED]: 50 } });
 
-        await expect(yesterday.service.recommend({ userId: "sub-1", text: "tired", objective: EObjective.KEEP }))
-            .resolves.toBeDefined();
+        await expect(custom.service.recommend({ userId: "sub-1", text: "tired", objective: EObjective.KEEP }))
+            .resolves.toMatchObject({ usage: { plan: "free", used: 5, limit: 5, remaining: 0 } });
+    });
+
+    test("stops when the counter turns out full at reservation time, even if the profile read looked under the cap", async () => {
+        const { service, userRepository, moodResolver } = build();
+        userRepository.full = true;
+
+        await expect(service.recommend({ userId: "sub-1", text: "tired", objective: EObjective.KEEP }))
+            .rejects.toBeInstanceOf(RateLimitError);
+        expect(userRepository.reservations).toHaveLength(1);
+        expect(userRepository.releases).toHaveLength(0);
+        expect(moodResolver.texts).toHaveLength(0);
+    });
+
+    test("gives the slot back when the pipeline fails", async () => {
+        const { service, userRepository, retriever } = build();
+        retriever.failWith = new Error("vector index unavailable");
+
+        await expect(service.recommend({ userId: "sub-1", text: "tired", objective: EObjective.KEEP }))
+            .rejects.toThrow("vector index unavailable");
+        expect(userRepository.reservations).toHaveLength(1);
+        expect(userRepository.releases).toEqual([{ userId: "sub-1", today: new Date().toISOString().slice(0, 10) }]);
+        expect(userRepository.user?.dailyCount).toBe(0);
     });
 
     test("requires a country before it can filter availability", async () => {

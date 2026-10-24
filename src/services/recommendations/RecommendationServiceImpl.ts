@@ -20,7 +20,6 @@ import {
     MAX_PER_GENRE,
     REQUEST_TTL_DAYS,
     RESULT_COUNT,
-    dailyCapFromEnvironment,
 } from "./config";
 import {
     EInputType,
@@ -41,6 +40,8 @@ import { UserRepositoryImpl } from "../users/UserRepositoryImpl";
 import { IUser } from "../users/domain/types";
 import { NotFoundError, RateLimitError, SafetyError, ValidationError } from "../common/errors";
 import { S3VectorsIndexImpl } from "../vectors/S3VectorsIndexImpl";
+import { IUsage } from "../billing/domain/types";
+import { DailyCaps, dailyCapsFromEnvironment, dailyLimitMessage, effectivePlan, nextUtcMidnight, usedToday, utcDay } from "../billing/plans";
 
 export interface RecommendationDependencies {
     userRepository?: UserRepository;
@@ -50,7 +51,8 @@ export interface RecommendationDependencies {
     catalogStore?: CatalogItemRepository;
     explanationService?: ExplanationService;
     requestRepository?: RequestRepository;
-    dailyCap?: number;
+    /** Requests per UTC day for each plan. */
+    dailyCaps?: DailyCaps;
 }
 
 export class RecommendationServiceImpl implements RecommendationService {
@@ -61,7 +63,7 @@ export class RecommendationServiceImpl implements RecommendationService {
     private readonly catalogStore: CatalogItemRepository;
     private readonly explanationService: ExplanationService;
     private readonly requestRepository: RequestRepository;
-    private readonly dailyCap: number;
+    private readonly dailyCaps: DailyCaps;
 
     constructor(dependencies: RecommendationDependencies = {}) {
         this.userRepository = dependencies.userRepository ?? new UserRepositoryImpl();
@@ -71,24 +73,18 @@ export class RecommendationServiceImpl implements RecommendationService {
         this.catalogStore = dependencies.catalogStore ?? CatalogStore.fromEnvironment();
         this.explanationService = dependencies.explanationService ?? new BedrockExplanationServiceImpl(this.catalogStore);
         this.requestRepository = dependencies.requestRepository ?? new RequestRepositoryImpl();
-        this.dailyCap = dependencies.dailyCap ?? dailyCapFromEnvironment();
+        this.dailyCaps = dependencies.dailyCaps ?? dailyCapsFromEnvironment();
     }
 
     public async recommend(input: IRecommendInput): Promise<IRecommendationResult> {
         const startedAt = new Date();
-        const today = startedAt.toISOString().slice(0, 10);
+        const today = utcDay(startedAt);
 
-        // Guard: daily cap and profile.
+        // Guard: profile first, and anything that can be rejected without touching the counter.
         const user = await this.userRepository.findById(input.userId);
 
         if (!user) {
             throw new NotFoundError("No profile found for this user. Complete sign-up first.");
-        }
-
-        const usedToday = user.dailyCountDate === today ? user.dailyCount : 0;
-
-        if (usedToday >= this.dailyCap) {
-            throw new RateLimitError(`Daily limit of ${this.dailyCap} recommendation requests reached. Try again tomorrow.`);
         }
 
         const country = (input.country ?? user.country)?.toUpperCase();
@@ -97,6 +93,44 @@ export class RecommendationServiceImpl implements RecommendationService {
             throw new ValidationError("Set your country in your profile before requesting recommendations.");
         }
 
+        // Guard: the plan's daily cap. The slot is taken atomically before any model call and handed
+        // back if the request fails, so parallel requests cannot slip past the cap and a failure
+        // costs the user nothing.
+        const plan = effectivePlan(user, startedAt);
+        const limit = this.dailyCaps[plan];
+        const resetsAt = nextUtcMidnight(startedAt);
+        const limitReached = () => new RateLimitError(dailyLimitMessage(plan, this.dailyCaps), {
+            code: "daily_limit_reached",
+            plan,
+            limit,
+            used: limit,
+            resetsAt,
+        });
+
+        if (usedToday(user, startedAt) >= limit) {
+            throw limitReached();
+        }
+
+        const used = await this.userRepository.reserveDailyRequest(input.userId, today, limit);
+
+        if (used === null) {
+            throw limitReached();
+        }
+
+        const usage: IUsage = { plan, used, limit, remaining: Math.max(0, limit - used), resetsAt };
+
+        try {
+            return { ...(await this.run(input, user, country, startedAt)), usage };
+        } catch (error) {
+            await this.userRepository.releaseDailyRequest(input.userId, today).catch((releaseError: Error) => {
+                console.error(`Could not give back the request slot for ${input.userId}:`, releaseError.message);
+            });
+            throw error;
+        }
+    }
+
+    /** The pipeline proper: resolve, target, retrieve and rank, explain, persist. */
+    private async run(input: IRecommendInput, user: IUser, country: string, startedAt: Date): Promise<Omit<IRecommendationResult, "usage">> {
         const services = expandServices(input.services ?? user.services ?? []);
         const requested = input.filters ?? {};
 
@@ -160,7 +194,6 @@ export class RecommendationServiceImpl implements RecommendationService {
             filters: Object.keys(requested).length > 0 ? requested : undefined,
             ttl: Math.floor(startedAt.getTime() / 1000) + REQUEST_TTL_DAYS * 24 * 60 * 60,
         });
-        await this.userRepository.incrementDailyCount(input.userId, today);
 
         return { requestId, moodProfile, target, results, notice, latencyMs };
     }

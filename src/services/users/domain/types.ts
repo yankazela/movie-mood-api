@@ -1,4 +1,5 @@
 import { EFeedback, IRecommendedItem } from "../../recommendations/domain/types";
+import { EPlan, EPlanSource, IUsage } from "../../billing/domain/types";
 
 export enum EIdentityProvider {
     COGNITO = "cognito",
@@ -48,8 +49,25 @@ export interface IUser {
     dailyCountDate?: string;
     /** True when services, ratingsAllowed and genrePrefs are all non-empty. See isFullyOnboarded. */
     fullyOnboarded: boolean;
+    /**
+     * Subscription plan as last synced from the billing provider. Absent on profiles from before
+     * billing existed, which means free. Advanced only counts while planExpiresAt is in the future;
+     * see effectivePlan.
+     */
+    plan?: EPlan;
+    /** When the paid plan lapses, or lapsed (ISO 8601). Absent for an open-ended grant. */
+    planExpiresAt?: string;
+    planSource?: EPlanSource;
+    /** False once the user cancelled or a payment failed; access continues until planExpiresAt. */
+    planWillRenew?: boolean;
+    /** The store product behind the plan, e.g. advanced_monthly. */
+    planProductId?: string;
+    /** When the plan was last synced from the billing provider. */
+    planUpdatedAt?: string;
 
     savedMovies?: IRecommendedItem[];
+    /** Presentation only: where the user stands against today's cap. Set when a profile is returned, never stored. */
+    usage?: IUsage;
 }
 
 /** Profile details a user may supply when the profile is created. All optional until onboarding. */

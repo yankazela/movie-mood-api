@@ -1,5 +1,5 @@
 import path = require("path");
-import { Stack, Duration, Fn } from "aws-cdk-lib";
+import { Stack, Duration, Fn, CfnOutput } from "aws-cdk-lib";
 import { Function } from "aws-cdk-lib/aws-lambda";
 import { Lambda, Network, CommonProps} from "@novha/cdk-lib";
 import { Construct } from "constructs";
@@ -9,6 +9,9 @@ import { Secret } from "aws-cdk-lib/aws-secretsmanager";
 import { Table } from "aws-cdk-lib/aws-dynamodb";
 import { UserPool } from "aws-cdk-lib/aws-cognito";
 import { PolicyStatement } from "aws-cdk-lib/aws-iam";
+import { Queue } from "aws-cdk-lib/aws-sqs";
+import { SqsEventSource } from "aws-cdk-lib/aws-lambda-event-sources";
+import { Alarm, ComparisonOperator, TreatMissingData } from "aws-cdk-lib/aws-cloudwatch";
 import {
 	AuthorizationType,
 	CognitoUserPoolsAuthorizer,
@@ -19,6 +22,13 @@ import {
 	ResponseType
 } from "aws-cdk-lib/aws-apigateway";
 
+
+/** The webhook only queues the event; it answers well inside API Gateway's 29-second limit. */
+const BILLING_WEBHOOK_TIMEOUT_SECONDS = 15;
+/** The processor syncs a handful of accounts per batch; a short timeout keeps retries coming round quickly. */
+const BILLING_PROCESSOR_TIMEOUT_SECONDS = 60;
+/** Attempts before an event parks in the dead-letter queue. */
+const BILLING_EVENT_MAX_ATTEMPTS = 5;
 
 export class MovieMoodApiStack extends Stack {
 	private readonly apiGateway: RestApi;
@@ -100,6 +110,13 @@ export class MovieMoodApiStack extends Stack {
 			Fn.importValue(`${props.projectName}-UserPoolArn-${props.stage}`)
 		);
 
+		// Recommendation requests per UTC day for each plan. The recommend handler enforces them and
+		// every handler that returns a profile reports usage against them, so they share one source.
+		const planEnvironment = {
+			DAILY_CAP_FREE: "2",
+			DAILY_CAP_ADVANCED: "15",
+		};
+
 		const createUserHandler = this.createHandler(
             "index.create",
             path.join(buildFolder, "user"),
@@ -131,6 +148,7 @@ export class MovieMoodApiStack extends Stack {
                 USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
                 MOVIES_TABLE_NAME: moviesTableName,
                 USER_POOL_ID: userPool.userPoolId,
+                ...planEnvironment,
             }
 		);
 		usersTable.grantReadWriteData(updateUserHandler);
@@ -152,6 +170,7 @@ export class MovieMoodApiStack extends Stack {
                 USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
                 MOVIES_TABLE_NAME: moviesTableName,
                 USER_POOL_ID: userPool.userPoolId,
+                ...planEnvironment,
             }
 		);
 		usersTable.grantReadData(meHandler);
@@ -168,6 +187,7 @@ export class MovieMoodApiStack extends Stack {
 			MOVIES_TABLE_NAME: moviesTableName,
 			USER_POOL_ID: userPool.userPoolId,
 			USER_POOL_CLIENT_ID: Fn.importValue(`${props.projectName}-UserPoolClientId-${props.stage}`),
+			...planEnvironment,
 		};
 		const signInHandler = this.createHandler(
             "index.signIn",
@@ -233,7 +253,7 @@ export class MovieMoodApiStack extends Stack {
                 MOVIES_TABLE_NAME: moviesTableName,
                 MOOD_MODEL_ID: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 EMBEDDING_MODEL_ID: "amazon.titan-embed-text-v2:0",
-                DAILY_REQUEST_CAP: "20",
+                ...planEnvironment,
                 VECTOR_BUCKET_NAME: vectorBucketName(props),
                 VECTOR_INDEX_NAME: VECTOR_INDEX_NAME,
             },
@@ -315,6 +335,119 @@ export class MovieMoodApiStack extends Stack {
 			moviesTable.grantReadData(handler);
 			route.resource.addMethod('GET', new LambdaIntegration(handler), authorized);
 		}
+
+		// Subscriptions. RevenueCat owns the plan: it calls the webhook on every purchase event, and
+		// the app calls sync right after a purchase so the profile flips without waiting for it. The
+		// secret starts with a generated webhook authorization and an empty API key; see the README.
+		const revenueCatSecret = new Secret(this, "RevenueCatSecret", {
+			secretName: `${props.projectName}/revenuecat-${props.stage}`,
+			description: "RevenueCat secret API key (apiKey) and the Authorization header value RevenueCat sends to the billing webhook (webhookAuthorization)",
+			generateSecretString: {
+				secretStringTemplate: JSON.stringify({ apiKey: "" }),
+				generateStringKey: "webhookAuthorization",
+				excludePunctuation: true,
+				passwordLength: 48,
+			},
+		});
+		// Webhook events are queued rather than handled in the request: RevenueCat gets its ack at once,
+		// a failing event is retried on our terms, and after the retry budget it parks in the
+		// dead-letter queue with its payload, where it can be inspected and redriven once fixed.
+		const billingDeadLetterQueue = new Queue(this, "BillingEventsDeadLetterQueue", {
+			queueName: `${props.projectName}-billing-events-dlq-${props.stage}`,
+			retentionPeriod: Duration.days(14),
+		});
+		const billingEventsQueue = new Queue(this, "BillingEventsQueue", {
+			queueName: `${props.projectName}-billing-events-${props.stage}`,
+			retentionPeriod: Duration.days(14),
+			// Six times the processor's timeout, as Lambda recommends, so a slow batch is not redelivered mid-flight.
+			visibilityTimeout: Duration.seconds(BILLING_PROCESSOR_TIMEOUT_SECONDS * 6),
+			deadLetterQueue: { queue: billingDeadLetterQueue, maxReceiveCount: BILLING_EVENT_MAX_ATTEMPTS },
+		});
+		new Alarm(this, "BillingEventsDeadLetterAlarm", {
+			alarmName: `${props.projectName}-billing-events-dlq-${props.stage}`,
+			alarmDescription: "A RevenueCat webhook event failed processing repeatedly. Inspect the dead-letter queue and redrive it once the cause is fixed.",
+			metric: billingDeadLetterQueue.metricApproximateNumberOfMessagesVisible({ period: Duration.minutes(5), statistic: "Maximum" }),
+			threshold: 0,
+			comparisonOperator: ComparisonOperator.GREATER_THAN_THRESHOLD,
+			evaluationPeriods: 1,
+			treatMissingData: TreatMissingData.NOT_BREACHING,
+		});
+
+		// Intake: checks the shared secret, validates the shape and queues the raw event. Nothing else.
+		const billingWebhookHandler = this.createHandler(
+			"index.webhook",
+			path.join(buildFolder, "billing"),
+			`${props.projectName}-billing-webhook-${props.stage}`,
+			{
+				REVENUECAT_SECRET_ARN: revenueCatSecret.secretArn,
+				BILLING_EVENTS_QUEUE_URL: billingEventsQueue.queueUrl,
+			},
+			undefined,
+			undefined,
+			BILLING_WEBHOOK_TIMEOUT_SECONDS
+		);
+		revenueCatSecret.grantRead(billingWebhookHandler);
+		billingEventsQueue.grantSendMessages(billingWebhookHandler);
+
+		// Processing and the app-triggered sync both re-read the subscriber from RevenueCat and store the plan.
+		const billingEnvironment = {
+			USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
+			MOVIES_TABLE_NAME: moviesTableName,
+			REVENUECAT_SECRET_ARN: revenueCatSecret.secretArn,
+			REVENUECAT_ENTITLEMENT_ID: "advanced",
+			...planEnvironment,
+		};
+		const billingProcessHandler = this.createHandler(
+			"index.processEvents",
+			path.join(buildFolder, "billing"),
+			`${props.projectName}-billing-process-${props.stage}`,
+			billingEnvironment,
+			undefined,
+			undefined,
+			BILLING_PROCESSOR_TIMEOUT_SECONDS
+		);
+		// Partial batch responses: only the records that failed return to the queue.
+		billingProcessHandler.addEventSource(new SqsEventSource(billingEventsQueue, { batchSize: 10, reportBatchItemFailures: true }));
+		const billingSyncHandler = this.createHandler(
+			"index.sync",
+			path.join(buildFolder, "billing"),
+			`${props.projectName}-billing-sync-${props.stage}`,
+			billingEnvironment
+		);
+		for (const handler of [billingProcessHandler, billingSyncHandler]) {
+			usersTable.grantReadWriteData(handler);
+			moviesTable.grantReadData(handler);
+			revenueCatSecret.grantRead(handler);
+		}
+		const billingResource = baseResource.addResource('billing');
+		// No Cognito authorizer here: RevenueCat authenticates with the shared secret in the Authorization header.
+		billingResource.addResource('webhook').addMethod('POST', new LambdaIntegration(billingWebhookHandler));
+		billingResource.addResource('sync').addMethod('POST', new LambdaIntegration(billingSyncHandler), authorized);
+
+		new CfnOutput(this, "BillingWebhookUrl", {
+			value: `${this.apiGateway.url}api/v1/movie-mood/billing/webhook`,
+			description: "Webhook URL for the RevenueCat project; send the secret's webhookAuthorization as the Authorization header value",
+		});
+		new CfnOutput(this, "RevenueCatSecretName", {
+			value: revenueCatSecret.secretName,
+			description: "Put the RevenueCat secret API key into this secret's apiKey field",
+		});
+		new CfnOutput(this, "BillingEventsQueueUrl", {
+			value: billingEventsQueue.queueUrl,
+			description: "Queue the webhook feeds and the processor consumes",
+		});
+		new CfnOutput(this, "BillingEventsDeadLetterQueueUrl", {
+			value: billingDeadLetterQueue.queueUrl,
+			description: "Events that failed processing; inspect with sqs receive-message",
+		});
+		new CfnOutput(this, "BillingEventsDeadLetterQueueArn", {
+			value: billingDeadLetterQueue.queueArn,
+			description: "Source for sqs start-message-move-task, which redrives failed events to the main queue",
+		});
+		new CfnOutput(this, "BillingProcessorFunctionName", {
+			value: billingProcessHandler.functionName,
+			description: "The processor's logs are at /aws/lambda/<this name>",
+		});
 	}
 
 	private createHandler(
@@ -325,13 +458,14 @@ export class MovieMoodApiStack extends Stack {
 			[key: string]: string
 		},
 		network?: Network,
-		memorySize?: number
+		memorySize?: number,
+		timeoutSeconds: number = 60 * 5
 	): Function {
 		const handler = new Lambda(this, {
 			network,
 			codePath,
             folder,
-            timeout: 60 * 5,
+            timeout: timeoutSeconds,
 			name,
 			environmentVariables,
 			memorySize

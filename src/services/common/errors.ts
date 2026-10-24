@@ -4,11 +4,14 @@
  */
 export class ClientError extends Error {
     public readonly statusCode: number;
+    /** Extra fields returned with the message, such as a machine-readable `code`. */
+    public readonly details: Record<string, unknown>;
 
-    constructor(message: string, statusCode = 400) {
+    constructor(message: string, statusCode = 400, details: Record<string, unknown> = {}) {
         super(message);
         this.name = new.target.name;
         this.statusCode = statusCode;
+        this.details = details;
     }
 }
 
@@ -40,9 +43,10 @@ export class SafetyError extends ClientError {
     }
 }
 
+/** The caller's plan allows no more requests today. `details` says which plan, the limit and when it resets. */
 export class RateLimitError extends ClientError {
-    constructor(message: string) {
-        super(message, 429);
+    constructor(message: string, details: Record<string, unknown> = {}) {
+        super(message, 429, details);
     }
 }
 

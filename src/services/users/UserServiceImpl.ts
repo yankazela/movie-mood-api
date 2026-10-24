@@ -11,20 +11,24 @@ import { ICreateUserInput, IIdentity, IProfileInput, IUpdateUserInput, IUser, IV
 import { IRecommendedItem } from "../recommendations/domain/types";
 import { UserFieldChanges } from "./UserRepository";
 import { isFullyOnboarded } from "./onboarding";
+import { DailyCaps, dailyCapsFromEnvironment, effectivePlan, usageFor } from "../billing/plans";
 
 export class UserServiceImpl implements UserService {
     private readonly authService: AuthService;
     private readonly userRepository: UserRepository;
     private readonly catalogStore: CatalogItemRepository;
+    private readonly dailyCaps: DailyCaps;
 
     constructor(
         authService: AuthService = new AuthServiceImpl(),
         userRepository: UserRepository = new UserRepositoryImpl(),
         catalogStore: CatalogItemRepository = CatalogStore.fromEnvironment(),
+        dailyCaps: DailyCaps = dailyCapsFromEnvironment(),
     ) {
         this.authService = authService;
         this.userRepository = userRepository;
         this.catalogStore = catalogStore;
+        this.dailyCaps = dailyCaps;
     }
 
     public async createUser(input: ICreateUserInput): Promise<IUser> {
@@ -127,7 +131,7 @@ export class UserServiceImpl implements UserService {
             });
         }
 
-        return this.withSavedMovies(updated);
+        return this.present(updated);
     }
 
     public async getUser(userId: string): Promise<IUser> {
@@ -138,7 +142,17 @@ export class UserServiceImpl implements UserService {
         }
 
         // Profiles saved before fullyOnboarded existed get it derived on read.
-        return this.withSavedMovies({ ...user, fullyOnboarded: user.fullyOnboarded ?? isFullyOnboarded(user) });
+        return this.present({ ...user, fullyOnboarded: user.fullyOnboarded ?? isFullyOnboarded(user) });
+    }
+
+    /**
+     * The profile as the API returns it: saved titles resolved, the plan as it stands right now
+     * (a lapsed subscription reads as free) and where the user is against today's cap.
+     */
+    private async present(user: IUser): Promise<IUser> {
+        const now = new Date();
+
+        return { ...(await this.withSavedMovies(user)), plan: effectivePlan(user, now), usage: usageFor(user, this.dailyCaps, now) };
     }
 
     /** Adds the catalogue items behind `myMovies`, in the user's order; ids no longer in the catalogue are left out. */
