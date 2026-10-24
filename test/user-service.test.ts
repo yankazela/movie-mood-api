@@ -11,6 +11,7 @@ import { CatalogItemRepository } from "../src/services/catalog/store/CatalogItem
 import { ICatalogItem } from "../src/services/catalog/domain/items";
 import { EFeedback } from "../src/services/recommendations/domain/types";
 import { EMediaType } from "../src/services/media/MediaType";
+import { EPlan, EPlanSource, IEntitlement } from "../src/services/billing/domain/types";
 
 class FakeAuthService implements AuthService {
     public created: { email: string; fullName: string; password?: string }[] = [];
@@ -70,8 +71,33 @@ class FakeUserRepository implements UserRepository {
         return current;
     }
 
-    async incrementDailyCount(): Promise<number> {
-        throw new Error("incrementDailyCount is not exercised by the user service tests");
+    async reserveDailyRequest(): Promise<number | null> {
+        throw new Error("reserveDailyRequest is not exercised by the user service tests");
+    }
+
+    async releaseDailyRequest(): Promise<void> {
+        throw new Error("releaseDailyRequest is not exercised by the user service tests");
+    }
+
+    public planChanges: { userId: string; entitlement: IEntitlement; syncedAt: string }[] = [];
+
+    async setPlan(userId: string, entitlement: IEntitlement, syncedAt: string): Promise<IUser> {
+        const current = this.saved.find(user => user.userId === userId);
+        if (!current) throw new NotFoundError("missing");
+        this.planChanges.push({ userId, entitlement, syncedAt });
+        delete current.planExpiresAt;
+        delete current.planSource;
+        delete current.planWillRenew;
+        delete current.planProductId;
+        Object.assign(current, {
+            plan: entitlement.plan,
+            planExpiresAt: entitlement.expiresAt,
+            planSource: entitlement.source,
+            planWillRenew: entitlement.willRenew,
+            planProductId: entitlement.productId,
+            planUpdatedAt: syncedAt,
+        });
+        return current;
     }
 }
 
@@ -308,6 +334,30 @@ describe("UserServiceImpl onboarding and updates", () => {
 
         expect(user.savedMovies).toEqual([]);
         expect(catalog.requested).toEqual([]);
+    });
+
+    test("returns the plan as it stands now and today's usage with the profile", async () => {
+        const repository = new FakeUserRepository();
+        const service = new UserServiceImpl(new FakeAuthService(), repository, new FakeCatalogStore(), { [EPlan.FREE]: 2, [EPlan.ADVANCED]: 15 });
+        await service.createProfile(identity);
+        const today = new Date().toISOString().slice(0, 10);
+        Object.assign(repository.saved[0], { dailyCount: 1, dailyCountDate: today });
+
+        // No plan field at all (profiles from before billing) means free.
+        expect(await service.getUser("sub-9")).toMatchObject({ plan: "free", usage: { plan: "free", used: 1, limit: 2, remaining: 1 } });
+
+        await repository.setPlan("sub-9", { plan: EPlan.ADVANCED, expiresAt: "2999-01-01T00:00:00.000Z", source: EPlanSource.APPLE, willRenew: true }, "2026-10-24T00:00:00.000Z");
+        const paid = await service.getUser("sub-9");
+
+        expect(paid).toMatchObject({ plan: "advanced", planSource: "apple", usage: { plan: "advanced", used: 1, limit: 15, remaining: 14 } });
+        expect(paid.usage?.resetsAt).toMatch(/T00:00:00\.000Z$/);
+
+        // A lapsed subscription reads as free, whatever the stored plan says.
+        await repository.setPlan("sub-9", { plan: EPlan.ADVANCED, expiresAt: "2000-01-01T00:00:00.000Z" }, "2026-10-24T00:00:00.000Z");
+        expect(await service.getUser("sub-9")).toMatchObject({ plan: "free", usage: { limit: 2 } });
+
+        // An update reports the same.
+        expect(await service.updateUser("sub-9", "uuid-9", { country: "ZA" })).toMatchObject({ plan: "free", usage: { limit: 2 } });
     });
 
     test("rejects an empty update and an unknown user", async () => {

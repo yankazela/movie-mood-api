@@ -1,5 +1,6 @@
 import { IAvailability } from "../../catalog/domain/items";
 import { EMediaType } from "../../media/MediaType";
+import { IUsage } from "../../billing/domain/types";
 
 export enum EObjective {
     /** Match the current mood. */
@@ -155,4 +156,6 @@ export interface IRecommendationResult {
     /** Set when fewer than the usual number of titles survived even after relaxing constraints. */
     notice?: "few_matches";
     latencyMs: number;
+    /** Where the user stands against today's cap, counting this request. */
+    usage: IUsage;
 }

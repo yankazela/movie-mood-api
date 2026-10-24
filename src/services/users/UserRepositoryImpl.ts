@@ -2,7 +2,10 @@ import { ConditionalCheckFailedException, DynamoDBClient } from "@aws-sdk/client
 import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand } from "@aws-sdk/lib-dynamodb";
 import { UserFieldChanges, UserMapChanges, UserRepository } from "./UserRepository";
 import { IUser, IVote } from "./domain/types";
+import { IEntitlement } from "../billing/domain/types";
 import { NotFoundError, ProfileAlreadyExistsError } from "../common/errors";
+
+const MISSING_PROFILE = "No profile found for this user. Complete sign-up first.";
 
 export class UserRepositoryImpl implements UserRepository {
     private readonly documentClient: DynamoDBDocumentClient;
@@ -92,7 +95,7 @@ export class UserRepositoryImpl implements UserRepository {
                 ExpressionAttributeValues: { ":empty": {} },
             })).catch(error => {
                 if (error instanceof ConditionalCheckFailedException) {
-                    throw new NotFoundError("No profile found for this user. Complete sign-up first.");
+                    throw new NotFoundError(MISSING_PROFILE);
                 }
 
                 throw error;
@@ -118,41 +121,148 @@ export class UserRepositoryImpl implements UserRepository {
             return result.Attributes as IUser;
         } catch (error) {
             if (error instanceof ConditionalCheckFailedException) {
-                throw new NotFoundError("No profile found for this user. Complete sign-up first.");
+                throw new NotFoundError(MISSING_PROFILE);
             }
 
             throw error;
         }
     }
 
-    public async incrementDailyCount(userId: string, today: string): Promise<number> {
+    public async reserveDailyRequest(userId: string, today: string, cap: number): Promise<number | null> {
+        if (cap < 1) {
+            return null;
+        }
+
+        // Same day: take a slot while the counter is under the cap. Otherwise the counter is from an
+        // earlier day (restart it at one) or today's is full. The second pass covers the rare race
+        // where another request restarted the counter between the two writes.
+        for (let attempt = 0; attempt < 2; attempt++) {
+            const incremented = await this.incrementUnderCap(userId, today, cap);
+
+            if (incremented !== null) {
+                return incremented;
+            }
+
+            const restarted = await this.restartCounter(userId, today);
+
+            if (restarted !== null) {
+                return restarted;
+            }
+        }
+
+        return null;
+    }
+
+    public async releaseDailyRequest(userId: string, today: string): Promise<void> {
+        try {
+            await this.documentClient.send(new UpdateCommand({
+                TableName: this.tableName,
+                Key: { userId },
+                UpdateExpression: "SET dailyCount = dailyCount - :one",
+                ConditionExpression: "dailyCountDate = :today AND dailyCount > :zero",
+                ExpressionAttributeValues: { ":one": 1, ":today": today, ":zero": 0 },
+            }));
+        } catch (error) {
+            // The day rolled over or the counter was reset meanwhile: there is nothing to give back.
+            if (!(error instanceof ConditionalCheckFailedException)) {
+                throw error;
+            }
+        }
+    }
+
+    public async setPlan(userId: string, entitlement: IEntitlement, syncedAt: string): Promise<IUser> {
+        const fields: Record<string, unknown> = {
+            plan: entitlement.plan,
+            planExpiresAt: entitlement.expiresAt,
+            planSource: entitlement.source,
+            planWillRenew: entitlement.willRenew,
+            planProductId: entitlement.productId,
+            planUpdatedAt: syncedAt,
+        };
+        const names: Record<string, string> = { "#userId": "userId" };
+        const values: Record<string, unknown> = {};
+        const assignments: string[] = [];
+        const removals: string[] = [];
+
+        Object.entries(fields).forEach(([field, value], index) => {
+            names[`#p${index}`] = field;
+
+            if (value === undefined) {
+                removals.push(`#p${index}`);
+                return;
+            }
+
+            values[`:p${index}`] = value;
+            assignments.push(`#p${index} = :p${index}`);
+        });
+
+        const clauses = [
+            assignments.length > 0 ? `SET ${assignments.join(", ")}` : "",
+            removals.length > 0 ? `REMOVE ${removals.join(", ")}` : "",
+        ].filter(Boolean);
+
+        try {
+            const result = await this.documentClient.send(new UpdateCommand({
+                TableName: this.tableName,
+                Key: { userId },
+                UpdateExpression: clauses.join(" "),
+                ConditionExpression: "attribute_exists(#userId)",
+                ExpressionAttributeNames: names,
+                ExpressionAttributeValues: Object.keys(values).length > 0 ? values : undefined,
+                ReturnValues: "ALL_NEW",
+            }));
+
+            return result.Attributes as IUser;
+        } catch (error) {
+            if (error instanceof ConditionalCheckFailedException) {
+                throw new NotFoundError(MISSING_PROFILE);
+            }
+
+            throw error;
+        }
+    }
+
+    /** Adds one to today's counter if it is under the cap. Null when the stored day differs or the cap is reached. */
+    private async incrementUnderCap(userId: string, today: string, cap: number): Promise<number | null> {
         try {
             const result = await this.documentClient.send(new UpdateCommand({
                 TableName: this.tableName,
                 Key: { userId },
                 UpdateExpression: "SET dailyCount = dailyCount + :one",
-                ConditionExpression: "dailyCountDate = :today",
+                ConditionExpression: "dailyCountDate = :today AND dailyCount < :cap",
+                ExpressionAttributeValues: { ":one": 1, ":today": today, ":cap": cap },
+                ReturnValues: "UPDATED_NEW",
+            }));
+
+            return Number(result.Attributes?.dailyCount ?? 1);
+        } catch (error) {
+            if (error instanceof ConditionalCheckFailedException) {
+                return null;
+            }
+
+            throw error;
+        }
+    }
+
+    /** Starts today's counter at one, but only while the stored counter is for another day. */
+    private async restartCounter(userId: string, today: string): Promise<number | null> {
+        try {
+            const result = await this.documentClient.send(new UpdateCommand({
+                TableName: this.tableName,
+                Key: { userId },
+                UpdateExpression: "SET dailyCount = :one, dailyCountDate = :today",
+                ConditionExpression: "attribute_exists(userId) AND (attribute_not_exists(dailyCountDate) OR dailyCountDate <> :today)",
                 ExpressionAttributeValues: { ":one": 1, ":today": today },
                 ReturnValues: "UPDATED_NEW",
             }));
 
             return Number(result.Attributes?.dailyCount ?? 1);
         } catch (error) {
-            if (!(error instanceof ConditionalCheckFailedException)) {
-                throw error;
+            if (error instanceof ConditionalCheckFailedException) {
+                return null;
             }
+
+            throw error;
         }
-
-        // First request of the day (or the first ever): start today's counter at one.
-        const result = await this.documentClient.send(new UpdateCommand({
-            TableName: this.tableName,
-            Key: { userId },
-            UpdateExpression: "SET dailyCount = :one, dailyCountDate = :today",
-            ConditionExpression: "attribute_exists(userId)",
-            ExpressionAttributeValues: { ":one": 1, ":today": today },
-            ReturnValues: "UPDATED_NEW",
-        }));
-
-        return Number(result.Attributes?.dailyCount ?? 1);
     }
 }

@@ -86,8 +86,14 @@ class FakeUsers implements UserRepository {
         throw new Error("not used");
     }
 
-    async incrementDailyCount(): Promise<number> {
-        return 0;
+    async reserveDailyRequest(): Promise<number | null> {
+        return 1;
+    }
+
+    async releaseDailyRequest(): Promise<void> {}
+
+    async setPlan(): Promise<IUser> {
+        throw new Error("not used");
     }
 }
 

@@ -7,7 +7,6 @@ export const MAX_PER_GENRE = 2;
 export const WHY_STALE_DAYS = 30;
 /** Requests table items expire after this long. */
 export const REQUEST_TTL_DAYS = 90;
-export const DEFAULT_DAILY_CAP = 20;
 /**
  * Claude via the classic Bedrock runtime (InvokeModel). Haiku 4.5 is open to every account but is
  * only served through a cross-region inference profile, hence the `us.` prefix.
@@ -31,9 +30,3 @@ export const DEFAULT_SUPPORTIVE_MESSAGE =
     "It sounds like you're carrying a lot right now, and it matters that you said so. " +
     "Rather than a film, this might be a moment to reach out to someone you trust, or to a local support line. " +
     "We're here whenever you'd like a recommendation.";
-
-export function dailyCapFromEnvironment(): number {
-    const parsed = Number(process.env.DAILY_REQUEST_CAP);
-
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_DAILY_CAP;
-}
