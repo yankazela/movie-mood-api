@@ -1,0 +1,104 @@
+src/services/billing/BillingEventQueue.ts
+  s_d38d57ead48d53::t_09ba5112b6878d 1-19
+src/services/billing/BillingWebhookIntakeImpl.ts
+  s_d38d57ead48d53::t_09ba5112b6878d 1-52,56-66
+  s_d38d57ead48d53::t_7b1eee93f1a968 53-55
+src/api/common/responses.ts
+  s_d38d57ead48d53::t_70aeebe3cc232e 5-7,12,14-22
+src/services/billing/BillingService.ts
+  s_d38d57ead48d53::t_09ba5112b6878d 6-7
+  s_d38d57ead48d53::t_70aeebe3cc232e 1-5,8-31
+src/services/billing/EntitlementProvider.ts
+  s_d38d57ead48d53::t_70aeebe3cc232e 1-7
+src/services/users/UserRepository.ts
+  s_d38d57ead48d53::t_fc4eb464d56f0e 3,28-31,33-43
+src/services/billing/SqsBillingEventQueueImpl.ts
+  s_d38d57ead48d53::t_09ba5112b6878d 1-45
+test/billing.test.ts
+  s_d38d57ead48d53::t_5127a328975b88 35,44,54,63,69-70,84,87,93,98,103,108,115,122,127,134-135,146,156,169-170,180-181,189,195,199,203,207,219-220,228,232,236,244-245,256,268,272,280,284,292,299,308,312-313,323-458
+  s_d38d57ead48d53::t_ffa116310860d9 4-15
+  s_d38d57ead48d53::t_c5dceda4d12c9c 1-3,16-34,36-43,45-53,55-62,64-68,71-83,85-86,88-92,94-97,99-102,104-107,109-114,116-121,123-126,128-133,136-145,147-155,157-168,171-179,182-188,190-194,196-198,200-202,204-206,208-218,221-227,229-231,233-235,237-243,246-255,257-267,269-271,273-279,281-283,285-291,293-298,300-307,309-311,314-322
+src/services/billing/domain/types.ts
+  s_d38d57ead48d53::t_70aeebe3cc232e 1-39
+src/services/billing/BillingEventProcessor.ts
+  s_d38d57ead48d53::t_09ba5112b6878d 1-34
+src/services/billing/RevenueCatClientImpl.ts
+  s_d38d57ead48d53::t_70aeebe3cc232e 1-172
+src/api/billing/index.ts
+  s_d38d57ead48d53::t_70aeebe3cc232e 1,3-4,9-10,13,17-20,24-28,30,32,34,49-58,60-72
+  s_d38d57ead48d53::t_09ba5112b6878d 2,5-8,11-12,14-16,21-23,29,31,33,35-48,59
+src/services/recommendations/RecommendationService.ts
+  s_d38d57ead48d53::t_fc4eb464d56f0e 5
+src/services/users/UserRepositoryImpl.ts
+  s_d38d57ead48d53::t_fc4eb464d56f0e 5,8-9,98,124-218,225-226,232-233,239-240,242-243,245,247-263,265-266
+test/recommendations.test.ts
+  s_d38d57ead48d53::t_51cc2ee18c60c4 131-134,148-170
+  s_d38d57ead48d53::t_042ac1d4df39e0 272
+  s_d38d57ead48d53::t_0a468fe555896d 197-198,204-206
+  s_d38d57ead48d53::t_5f777d84456c1b 289
+  s_d38d57ead48d53::t_52ef97bcf180d6 321-326,330,341-344,347,349-364,366-391,393-396,398-400,402-406
+  s_d38d57ead48d53::t_33e5861460fcac 22-23
+README.md
+  s_d38d57ead48d53::t_09ba5112b6878d 23-97
+cdk/lib/app/movie-mood-stack.ts
+  s_d38d57ead48d53::t_5f8471126a2e93 461-462,468
+  s_d38d57ead48d53::t_8baecb0da11376 151
+  s_d38d57ead48d53::t_4ae251d20aec5f 113-119
+  s_d38d57ead48d53::t_618b0858b7c847 26-32
+  s_d38d57ead48d53::t_68c2d97171de36 338-351,393-399,402,408,411-416,418-433,450
+  s_d38d57ead48d53::t_6a7cd7f1544fd8 2
+  s_d38d57ead48d53::t_7e2e794ed04ed0 256
+  s_d38d57ead48d53::t_685704b796194e 190
+  s_d38d57ead48d53::t_eb0016c2248a67 173
+  s_d38d57ead48d53::t_08b0d3e56965d5 352-392,400-401,403-407,409-410,417,434-449
+  s_d38d57ead48d53::t_d1586d67ffb609 12-14
+package.json
+  s_d38d57ead48d53::t_1467de383e7385 31
+src/services/users/domain/types.ts
+  s_d38d57ead48d53::t_d4356df69d30b7 2
+  s_d38d57ead48d53::t_9cc5d909a3da2a 52-66,69-70
+src/services/recommendations/RecommendationServiceImpl.ts
+  s_d38d57ead48d53::t_15aa73b727b427 43-44,54-55
+  s_d38d57ead48d53::t_31b3fe2905f4b5 66,76,81,83,96-133
+test/catalog-browse.test.ts
+  s_d38d57ead48d53::t_adfcb9d78e25a0 77-84
+src/services/recommendations/domain/types.ts
+  s_d38d57ead48d53::t_41c146b7d46fa2 159-160
+  s_d38d57ead48d53::t_882c5d60e2c25d 3
+src/services/users/UserServiceImpl.ts
+  s_d38d57ead48d53::t_a6f7e6853a7d7e 14,20,26,31
+  s_d38d57ead48d53::t_f0f68d7784d1ab 134,145-155
+src/services/billing/plans.ts
+  s_d38d57ead48d53::t_70aeebe3cc232e 1-74
+src/services/common/errors.ts
+  s_d38d57ead48d53::t_70aeebe3cc232e 7-8,10,14,46,48-49
+test/history.test.ts
+  s_d38d57ead48d53::t_2ff3b6235d9de5 89-96
+test/user-service.test.ts
+  s_d38d57ead48d53::t_3d54da3ac0cc12 74-100
+  s_d38d57ead48d53::t_39363f73ce1d7f 14
+  s_d38d57ead48d53::t_189e198c751039 339-362
+src/services/billing/BillingWebhookIntake.ts
+  s_d38d57ead48d53::t_09ba5112b6878d 1-12
+src/services/billing/BillingServiceImpl.ts
+  s_d38d57ead48d53::t_70aeebe3cc232e 1-37,39-64,67-87
+  s_d38d57ead48d53::t_09ba5112b6878d 38,65-66
+package-lock.json
+  s_d38d57ead48d53::t_b495b626c9d420 21,501-520,522-524,527,530-531,557-559,562-564,573-575,578-580,591-593,596-605,615-617,620-623,632-634,637-644,654-656,659-661,670-672,675-679,688-690,693-696,841-855,875-877,880-883,894-896,899-900,909-911,914-917,926-928,2454-2456
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5d8205a253fa4d3661b6821d32a0f91bb70d298e",
+  "prompts": {},
+  "sessions": {
+    "s_d38d57ead48d53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "35272b22-e545-4c09-974f-46608b06b576",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Yanick Kazadi <yanickkazadi@Mac.cgocable.net>"
+    }
+  }
+}
