@@ -1,0 +1,37 @@
+{
+  "api_version": "1.0",
+  "event": {
+    "id": "7E0C7A4B-2F2B-4F3C-9D4E-TEST00000001",
+    "type": "INITIAL_PURCHASE",
+    "app_id": "appREPLACE",
+    "app_user_id": "REPLACE_WITH_COGNITO_SUB",
+    "original_app_user_id": "REPLACE_WITH_COGNITO_SUB",
+    "aliases": [
+      "REPLACE_WITH_COGNITO_SUB"
+    ],
+    "product_id": "advanced_monthly",
+    "entitlement_id": "advanced",
+    "entitlement_ids": [
+      "advanced"
+    ],
+    "presented_offering_id": "default",
+    "period_type": "NORMAL",
+    "store": "PLAY_STORE",
+    "environment": "SANDBOX",
+    "purchased_at_ms": 1761667200000,
+    "expiration_at_ms": 1764345600000,
+    "event_timestamp_ms": 1761667205000,
+    "transaction_id": "GPA.3300-1234-5678-90123",
+    "original_transaction_id": "GPA.3300-1234-5678-90123",
+    "price": 3.99,
+    "price_in_purchased_currency": 3.99,
+    "currency": "USD",
+    "country_code": "US",
+    "is_family_share": false,
+    "offer_code": null,
+    "subscriber_attributes": {},
+    "takehome_percentage": 0.85,
+    "commission_percentage": 0.15,
+    "tax_percentage": 0.0
+  }
+}

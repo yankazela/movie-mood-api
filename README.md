@@ -2,6 +2,7 @@
 #    (set -a exports them; without it the deploy sees empty parameters)
 set -a; source .env; set +a
 test -n "$TMDB_API_TOKEN" || echo "TMDB_API_TOKEN is empty" >&2
+test -n "$WEBHOOK_KEY" || echo "WEBHOOK_KEY is empty" >&2
 
 set -a; source .env; set +a
 test -n "$GOOGLE_CLIENT_ID" || echo "GOOGLE_CLIENT_ID is empty" >&2
@@ -10,7 +11,8 @@ test -n "$FE_BASE_URL" || echo "FE_BASE_URL"
 
 # 1. API and catalog stacks: stop importing the vector exports
 AWS_REGION=us-east-1 npx cdk deploy --profile private --all \
-  --parameters movie-mood-catalog-dev:TmdbApiToken="$TMDB_API_TOKEN"
+  --parameters movie-mood-catalog-dev:TmdbApiToken="$TMDB_API_TOKEN" \
+  --parameters movie-mood-stack-dev:WebhookKey="$WEBHOOK_KEY"
 
 # 2. Storage and auth stacks: now free to replace the index
 AWS_REGION=us-east-1 npx cdk deploy --profile private --all \

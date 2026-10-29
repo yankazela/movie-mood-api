@@ -38,6 +38,8 @@ export class BillingWebhookIntakeImpl implements BillingWebhookIntake {
             receivedAt: this.now().toISOString(),
         };
 
+        console.log("Queued billing event:", queued);
+
         await this.queue.enqueue(queued);
 
         return queued;

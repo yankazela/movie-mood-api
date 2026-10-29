@@ -40,10 +40,14 @@ export const webhook = async (event: APIGatewayProxyEvent): Promise<ApiResponse>
  * reach the dead-letter queue.
  */
 export const processEvents = async (event: SQSEvent): Promise<SQSBatchResponse> => {
+    console.log("Processing billing records:", event.Records);
+
     const failed = await processBillingRecords(
         event.Records.map(record => ({ messageId: record.messageId, body: record.body })),
         billingService(),
     );
+
+    console.log("Failed billing records:", failed);
 
     return { batchItemFailures: failed.map(itemIdentifier => ({ itemIdentifier })) };
 };
@@ -54,6 +58,8 @@ export const processEvents = async (event: SQSEvent): Promise<SQSBatchResponse> 
  */
 export const sync = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
     const responseService = new ResponseService();
+
+    console.log("Syncing billing for user:", requireUserId(event));
 
     try {
         const user = await billingService().syncUser(requireUserId(event));
