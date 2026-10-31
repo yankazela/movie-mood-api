@@ -1,0 +1,24 @@
+test/recommendations.test.ts
+  s_d38d57ead48d53::t_ad5db269f469dc 510-525
+src/services/recommendations/dto/RecommendRequest.ts
+  s_d38d57ead48d53::t_703da66bf2eba4 17,29-32
+  s_d38d57ead48d53::t_b22f23f41271e4 33
+src/api/recommendations/index.ts
+  s_d38d57ead48d53::t_703da66bf2eba4 40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "7707128392eec5a6cb5de094bef288b7da9f5120",
+  "prompts": {},
+  "sessions": {
+    "s_d38d57ead48d53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "35272b22-e545-4c09-974f-46608b06b576",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Yanick Kazadi <yanickkazadi@Mac.cgocable.net>"
+    }
+  }
+}
