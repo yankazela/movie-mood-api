@@ -507,3 +507,19 @@ describe("RecommendationServiceImpl.recommend", () => {
         expect(result.results[0].rating).toBe("13");
     });
 });
+
+describe("RecommendRequest.inputType", () => {
+    const { parseRequest } = require("../src/services/common/RequestParser") as typeof import("../src/services/common/RequestParser");
+    const { RecommendRequest } = require("../src/services/recommendations/dto/RecommendRequest") as typeof import("../src/services/recommendations/dto/RecommendRequest");
+
+    test("accepts voice, defaults to nothing, and rejects anything else", async () => {
+        const spoken = await parseRequest(JSON.stringify({ text: "I'm tired and want a laugh", objective: "keep", inputType: "voice" }), RecommendRequest);
+        expect(spoken.inputType).toBe("voice");
+
+        const typed = await parseRequest(JSON.stringify({ text: "I'm tired and want a laugh", objective: "keep" }), RecommendRequest);
+        expect(typed.inputType).toBeUndefined();
+
+        await expect(parseRequest(JSON.stringify({ text: "I'm tired", objective: "keep", inputType: "shout" }), RecommendRequest))
+            .rejects.toBeInstanceOf(ValidationError);
+    });
+});
