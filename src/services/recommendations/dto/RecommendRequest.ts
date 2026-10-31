@@ -14,7 +14,7 @@ import {
     Min,
 } from "class-validator";
 import { ValidationService } from "@novha/cdk-lib";
-import { EObjective } from "../domain/types";
+import { EInputType, EObjective } from "../domain/types";
 import { ACTIVE_MEDIA_TYPES, EMediaType } from "../../media/MediaType";
 
 export class RecommendRequest extends ValidationService {
@@ -25,6 +25,11 @@ export class RecommendRequest extends ValidationService {
 
     @IsEnum(EObjective)
     objective: EObjective;
+
+    /** Whether the text was typed or dictated. Kept on the request for later analysis; text when omitted. */
+    @IsOptional()
+    @IsEnum(EInputType)
+    inputType?: EInputType;
 
     /** Which media to recommend. Omit for all active types. Only active types are accepted. */
     @IsOptional()

@@ -4,7 +4,7 @@ import { EPlan, EPlanSource, IEntitlement } from "./domain/types";
 import { ServiceUnavailableError } from "../common/errors";
 
 const BASE_URL = "https://api.revenuecat.com/v1";
-export const DEFAULT_ENTITLEMENT_ID = "advanced";
+export const DEFAULT_ENTITLEMENT_ID = "upmymood_pro";
 
 /** The secret holds both halves of the RevenueCat integration, as JSON. */
 export interface RevenueCatCredentials {
@@ -86,6 +86,8 @@ export class RevenueCatClientImpl implements EntitlementProvider {
         const response = await this.fetchImpl(`${this.baseUrl}/subscribers/${encodeURIComponent(userId)}`, {
             headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
         });
+
+        console.log("Fetching entitlement for user:", userId, await response.clone().json());
 
         if (!response.ok) {
             throw new Error(`RevenueCat answered ${response.status} when reading subscriber ${userId}`);

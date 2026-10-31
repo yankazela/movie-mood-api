@@ -91,6 +91,8 @@ export class AuthStack extends Stack {
 					`${props.frontendUrl}/`,
 					`${props.frontendUrl}/auth/callback`,
 					`${props.frontendUrl}/auth/callback/`,
+					// The iOS and Android apps: the Hosted UI opens in the system browser and comes back by URL scheme.
+					'upmymood://auth/callback',
 				],
 				logoutUrls: [
 					'http://localhost:3000/',

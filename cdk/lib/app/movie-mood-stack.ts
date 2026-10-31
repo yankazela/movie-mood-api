@@ -1,5 +1,5 @@
 import path = require("path");
-import { Stack, Duration, Fn, CfnOutput } from "aws-cdk-lib";
+import { Stack, Duration, Fn, CfnOutput, CfnParameter } from "aws-cdk-lib";
 import { Function } from "aws-cdk-lib/aws-lambda";
 import { Lambda, Network, CommonProps} from "@novha/cdk-lib";
 import { Construct } from "constructs";
@@ -65,6 +65,14 @@ export class MovieMoodApiStack extends Stack {
 		const baseResource = rootResource.resourceForPath(resourcePath);
         
 		const lambdaIndex = "index.fetch";
+
+		const webhookKeyParam = new CfnParameter(this, "WebhookKey", {
+			type: "String",
+			description: "Webhook key for verifying incoming requests",
+			noEcho: true,
+			// Fail at parameter validation, before any resource is touched, if the value is empty.
+			minLength: 1,
+		});
 		// @novha/cdk-lib resolves `folder` relative to its own dist/lambda directory inside
 		// node_modules, so derive the hop from there to this project's dist/api instead of
 		// hard-coding "../" segments that break whenever the package's install depth changes.
@@ -343,7 +351,7 @@ export class MovieMoodApiStack extends Stack {
 			secretName: `${props.projectName}/revenuecat-${props.stage}`,
 			description: "RevenueCat secret API key (apiKey) and the Authorization header value RevenueCat sends to the billing webhook (webhookAuthorization)",
 			generateSecretString: {
-				secretStringTemplate: JSON.stringify({ apiKey: "" }),
+				secretStringTemplate: JSON.stringify({ apiKey: webhookKeyParam.valueAsString }),
 				generateStringKey: "webhookAuthorization",
 				excludePunctuation: true,
 				passwordLength: 48,
@@ -394,7 +402,7 @@ export class MovieMoodApiStack extends Stack {
 			USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
 			MOVIES_TABLE_NAME: moviesTableName,
 			REVENUECAT_SECRET_ARN: revenueCatSecret.secretArn,
-			REVENUECAT_ENTITLEMENT_ID: "advanced",
+			REVENUECAT_ENTITLEMENT_ID: "upmymood_pro",
 			...planEnvironment,
 		};
 		const billingProcessHandler = this.createHandler(
