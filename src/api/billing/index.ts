@@ -1,7 +1,7 @@
 import { ApiResponse, ResponseService } from "@novha/cdk-lib";
 import { APIGatewayProxyEvent, SQSBatchResponse, SQSEvent } from "aws-lambda";
 import { errorResponse } from "../common/responses";
-import { requireUserId } from "../common/request";
+import { requireUserId, localized } from "../common/request";
 import { BillingService } from "../../services/billing/BillingService";
 import { BillingServiceImpl } from "../../services/billing/BillingServiceImpl";
 import { processBillingRecords } from "../../services/billing/BillingEventProcessor";
@@ -56,7 +56,7 @@ export const processEvents = async (event: SQSEvent): Promise<SQSBatchResponse> 
  * POST /billing/sync. The app calls this right after a purchase or a restore, so the profile
  * reflects the new plan without waiting for the webhook. Responds with the profile.
  */
-export const sync = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
+export const sync = localized(async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
     const responseService = new ResponseService();
 
     console.log("Syncing billing for user:", requireUserId(event));
@@ -68,7 +68,7 @@ export const sync = async (event: APIGatewayProxyEvent): Promise<ApiResponse> =>
     } catch (error: any) {
         return errorResponse(error, responseService, "Error syncing the subscription");
     }
-};
+});
 
 /** Header lookup that does not depend on the casing API Gateway happened to keep. */
 function header(event: APIGatewayProxyEvent, name: string): string | undefined {

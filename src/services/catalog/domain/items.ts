@@ -14,6 +14,13 @@ export interface IAvailability {
     checkedAt: string;
 }
 
+/** A title's text in another language. Fields TMDB has no translation for are left out. */
+export interface ILocalizedText {
+    title?: string;
+    tagline?: string;
+    overview?: string;
+}
+
 /** Media-specific fields for films, series and documentaries. */
 export type IVideoDetails = {
     kind: "film" | "show";
@@ -57,6 +64,8 @@ export interface ICatalogItem {
     why?: Record<string, IWhyEntry>;
     /** Media-specific fields, e.g. IVideoDetails. */
     details?: Record<string, unknown>;
+    /** Title, tagline and overview in other languages, keyed by ISO 639-1 code, e.g. { fr: { title: "Le Parrain" } }. */
+    i18n?: Record<string, ILocalizedText>;
 }
 
 /** What the catalogue job writes; the `why` cache is owned by the recommender. */

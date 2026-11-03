@@ -172,13 +172,18 @@ function voteCount(item: ICatalogItem): number {
 
 /** 0 when the item does not match. Titles outrank people, who outrank genres. */
 export function searchScore(item: ICatalogItem, query: string): number {
-    const title = normalize(item.title);
+    // The English title and every translated one: "le parrain" finds The Godfather.
+    const titles = [item.title, ...Object.values(item.i18n ?? {}).map(text => text.title)].filter((title): title is string => Boolean(title)).map(normalize);
     const tokens = query.split(" ");
+    const best = Math.max(0, ...titles.map(title => {
+        if (title === query) return 100;
+        if (title.startsWith(query)) return 80;
+        if (title.includes(query)) return 60;
+        if (tokens.length > 1 && tokens.every(token => title.includes(token))) return 50;
+        return 0;
+    }));
 
-    if (title === query) return 100;
-    if (title.startsWith(query)) return 80;
-    if (title.includes(query)) return 60;
-    if (tokens.length > 1 && tokens.every(token => title.includes(token))) return 50;
+    if (best > 0) return best;
 
     const details = detailsOf(item);
     const people = [details.director, ...(details.cast ?? []).map(member => member.name)].filter((name): name is string => Boolean(name));

@@ -1,6 +1,7 @@
 import { ApiResponse, ResponseService } from "@novha/cdk-lib";
 import { APIGatewayProxyEvent } from "aws-lambda";
 import { errorResponse } from "../common/responses";
+import { localized } from "../common/request";
 import { CreateUserRequest } from "../../services/users/dto/CreateUserRequest";
 import { UpdateUserRequest } from "../../services/users/dto/UpdateUserRequest";
 import { UnauthorizedError } from "../../services/common/errors";
@@ -26,7 +27,7 @@ export const create = async (event: APIGatewayProxyEvent): Promise<ApiResponse> 
  * PATCH /user. Updates the signed-in user's own profile; the route sits behind the Cognito
  * authorizer, so the user is identified by the verified token, never by the body.
  */
-export const update = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
+export const update = localized(async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
     const responseService = new ResponseService();
 
     try {
@@ -44,13 +45,13 @@ export const update = async (event: APIGatewayProxyEvent): Promise<ApiResponse> 
     } catch (error: any) {
         return errorResponse(error, responseService, "Error updating user");
     }
-};
+});
 
 /**
  * GET /user/me. Returns the signed-in user's profile, identified by the verified token. This is how
  * Google and Apple users, who never call the sign-in endpoint, read their profile.
  */
-export const me = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
+export const me = localized(async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
     const responseService = new ResponseService();
 
     try {
@@ -66,4 +67,4 @@ export const me = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
     } catch (error: any) {
         return errorResponse(error, responseService, "Error fetching user");
     }
-};
+});

@@ -31,6 +31,22 @@ export interface TmdbReleaseDateEntry {
     release_dates: { certification: string; type: number }[];
 }
 
+/** One language and region version of a title, from append_to_response=translations. */
+export interface TmdbTranslation {
+    /** Region, e.g. "FR" or "MX". */
+    iso_3166_1: string;
+    /** Language, e.g. "fr" or "es". */
+    iso_639_1: string;
+    data: {
+        /** Films. */
+        title?: string;
+        /** Series. */
+        name?: string;
+        overview?: string;
+        tagline?: string;
+    };
+}
+
 export interface TmdbCredits {
     cast?: { name: string; character?: string; order?: number }[];
     crew?: { name: string; job?: string }[];
@@ -53,6 +69,7 @@ export interface TmdbMovieDetails {
     keywords?: { keywords: { name: string }[] };
     release_dates?: { results: TmdbReleaseDateEntry[] };
     "watch/providers"?: { results: Record<string, TmdbCountryProviders> };
+    translations?: { translations: TmdbTranslation[] };
 }
 
 export interface TmdbTvDetails {
@@ -75,6 +92,7 @@ export interface TmdbTvDetails {
     keywords?: { results: { name: string }[] };
     content_ratings?: { results: { iso_3166_1: string; rating: string }[] };
     "watch/providers"?: { results: Record<string, TmdbCountryProviders> };
+    translations?: { translations: TmdbTranslation[] };
 }
 
 export type TmdbProviderKind = "movie" | "tv";

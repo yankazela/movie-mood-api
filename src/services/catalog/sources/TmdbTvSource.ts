@@ -1,11 +1,12 @@
 import { CatalogSource, ICatalogDraft, ICatalogPage, ICatalogRef } from "./CatalogSource";
-import { availabilityFor, castOf, genreNames, isDocumentary, providerFrom, yearOf } from "./tmdbShared";
+import { availabilityFor, castOf, localizedTexts, genreNames, isDocumentary, providerFrom, yearOf } from "./tmdbShared";
 import { TmdbClient, TmdbTvDetails } from "../TmdbClient";
 import { POSTER_SIZE, PROVIDER_LOGO_SIZE } from "../config";
 import { IVideoDetails } from "../domain/items";
 import { IProvider } from "../domain/types";
 import { EMediaType, buildItemId } from "../../media/MediaType";
 import { AssetStore } from "../../storage/AssetStore";
+import { catalogLanguagesFromEnvironment } from "../../i18n/locale";
 
 export const TMDB_TV_SOURCE_ID = "tmdb-tv";
 
@@ -15,10 +16,13 @@ export class TmdbTvSource implements CatalogSource {
 
     private readonly tmdb: TmdbClient;
     private readonly assetStore: AssetStore;
+    /** Languages to keep translated text for, besides English. */
+    private readonly languages: string[];
 
-    constructor(tmdb: TmdbClient, assetStore: AssetStore) {
+    constructor(tmdb: TmdbClient, assetStore: AssetStore, languages: string[] = catalogLanguagesFromEnvironment()) {
         this.tmdb = tmdb;
         this.assetStore = assetStore;
+        this.languages = languages;
     }
 
     public async discover(country: string, page: number): Promise<ICatalogPage> {
@@ -58,6 +62,7 @@ export class TmdbTvSource implements CatalogSource {
                 rating: contentRatingsFor(show, countries),
                 popularity: show.popularity,
                 posterKey: show.poster_path ? `posters/${this.id}-${show.id}.jpg` : undefined,
+                i18n: localizedTexts(show.translations?.translations, this.languages),
                 availability: availabilityFor(show["watch/providers"]?.results, countries, checkedAt),
                 details,
             },

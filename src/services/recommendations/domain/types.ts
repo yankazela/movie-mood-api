@@ -131,7 +131,12 @@ export interface IRecommendInput {
 export interface IRecommendedItem {
     itemId: string;
     mediaType: EMediaType;
+    /** In the caller's language when the catalogue has a translation. */
     title: string;
+    /** The catalogue (English) title, only when `title` is a translation that differs from it. */
+    originalTitle?: string;
+    /** The language `title` and the details text are in. */
+    language?: string;
     year?: number;
     runtime?: number;
     genres: string[];

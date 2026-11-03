@@ -1,6 +1,7 @@
 import { APIGatewayProxyEvent } from "aws-lambda";
 import { UnauthorizedError, ValidationError } from "../../services/common/errors";
 import { EMediaType, isMediaType } from "../../services/media/MediaType";
+import { localeFromHeader, runWithLocale } from "../../services/i18n/locale";
 
 /** The caller's id, read from the claims API Gateway verified; never from the request itself. */
 export function requireUserId(event: APIGatewayProxyEvent): string {
@@ -78,4 +79,19 @@ export function countryParam(event: APIGatewayProxyEvent): string | undefined {
     }
 
     return country;
+}
+
+/**
+ * Runs an API handler in the caller's language, read from Accept-Language, so catalogue items
+ * come back with translated titles and descriptions where the catalogue has them.
+ */
+export function localized<R>(handler: (event: APIGatewayProxyEvent) => Promise<R>): (event: APIGatewayProxyEvent) => Promise<R> {
+    return event => runWithLocale(localeFromHeader(headerValue(event, "accept-language")), () => handler(event));
+}
+
+/** Header lookup that does not depend on the casing API Gateway kept. */
+export function headerValue(event: APIGatewayProxyEvent, name: string): string | undefined {
+    const match = Object.entries(event.headers ?? {}).find(([key]) => key.toLowerCase() === name.toLowerCase());
+
+    return match?.[1] ?? undefined;
 }

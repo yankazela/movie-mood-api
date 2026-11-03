@@ -97,3 +97,18 @@ aws sqs start-message-move-task --source-arn "$(output BillingEventsDeadLetterQu
    Authorization header value to `webhookAuthorization` from the secret.
 4. To try the advanced plan without buying anything, grant the `advanced` entitlement to a customer from the
    RevenueCat dashboard (a promotional grant), then call `POST /billing/sync` as that user or wait for the webhook.
+
+## Translated catalogue
+
+The catalogue refresh asks TMDB for every title's translations in the same call it already makes
+(`append_to_response=...,translations`) and stores title, tagline and overview per language on the item as `i18n`,
+e.g. `{ fr: { title: "Le Parrain", overview: "..." } }`. Languages come from `CATALOG_LANGUAGES` (default `fr,es`),
+set in the catalogue stack. Each field takes the most preferred regional version that has it (France before Canada,
+Spain before Mexico), so a missing field falls back to another region, then to English.
+
+Handlers that return catalogue items run inside the caller's language, read from `Accept-Language`
+(`localized()` in `src/api/common/request.ts`); the presenter then returns the translated title, tagline and
+overview, plus `originalTitle` and `language`. Search matches translated titles too.
+
+Existing items gain translations on the next refresh, since every discovered title is re-fetched and rewritten.
+The mood description and the embeddings stay English, so recommendations are unaffected by the language.

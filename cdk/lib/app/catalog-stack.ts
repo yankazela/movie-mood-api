@@ -65,7 +65,9 @@ export class MovieMoodCatalogStack extends Stack {
 				MOOD_MODEL_ID: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
 				EMBEDDING_MODEL_ID: "amazon.titan-embed-text-v2:0",
 				// Comma-separated ISO country codes to catalog, in order.
-				CATALOG_COUNTRIES: "ZA,US,CA",
+				CATALOG_COUNTRIES: "ZA,US,CA,FR,UK",
+				// Languages to store translated titles and descriptions for, besides English (ISO 639-1).
+				CATALOG_LANGUAGES: "fr,es",
 				// Discover pages per country per run (20 films each).
 				CATALOG_MAX_PAGES: "10",
 			},
