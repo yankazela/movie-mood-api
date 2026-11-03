@@ -1,0 +1,59 @@
+src/services/catalog/presenter.ts
+  s_d38d57ead48d53::t_ed08d6c48db533 2,5-10,12-15,20-22,28
+cdk/lib/app/catalog-stack.ts
+  s_d38d57ead48d53::t_467d85c22a937f 69-70
+  s_d38d57ead48d53::t_6823594567f671 68
+src/services/i18n/locale.ts
+  s_d38d57ead48d53::t_ed08d6c48db533 1-42
+src/api/user/index.ts
+  s_d38d57ead48d53::t_0d132d44d5276e 4,30,48,54,70
+src/services/catalog/sources/tmdbShared.ts
+  s_d38d57ead48d53::t_ed08d6c48db533 1-2,66-107
+  s_d38d57ead48d53::t_91eb660c53852e 108
+src/services/catalog/TmdbClientImpl.ts
+  s_d38d57ead48d53::t_ed08d6c48db533 43,49
+test/billing.test.ts
+  s_d38d57ead48d53::t_467d85c22a937f 142-143
+src/api/recommendations/index.ts
+  s_d38d57ead48d53::t_0d132d44d5276e 4,20,51,54,64,67,82
+src/api/common/request.ts
+  s_d38d57ead48d53::t_0d132d44d5276e 4,83-97
+src/services/recommendations/domain/types.ts
+  s_d38d57ead48d53::t_ed08d6c48db533 134,136-139
+src/api/auth/index.ts
+  s_d38d57ead48d53::t_0d132d44d5276e 4,21,32,35,46
+test/i18n-catalog.test.ts
+  s_d38d57ead48d53::t_5da47c2aa6fc5e 1-109
+src/services/catalog/CatalogBrowseServiceImpl.ts
+  s_d38d57ead48d53::t_ed08d6c48db533 175-176,178-186
+src/services/catalog/domain/items.ts
+  s_d38d57ead48d53::t_ed08d6c48db533 17-23,67-68
+src/services/catalog/sources/TmdbMovieSource.ts
+  s_d38d57ead48d53::t_ed08d6c48db533 2,9,19-20,22,25,62
+src/services/catalog/TmdbClient.ts
+  s_d38d57ead48d53::t_ed08d6c48db533 34-49,72,95
+src/api/billing/index.ts
+  s_d38d57ead48d53::t_0d132d44d5276e 4,59,71
+src/api/movies/index.ts
+  s_d38d57ead48d53::t_0d132d44d5276e 4,13,23,26,36,39,59,62,87
+README.md
+  s_d38d57ead48d53::t_ccaaa0b46f925d 100-114
+src/services/catalog/sources/TmdbTvSource.ts
+  s_d38d57ead48d53::t_ed08d6c48db533 2,9,19-20,22,25,65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "084b84a77d1d27a2ab5909870502cd2d369793d7",
+  "prompts": {},
+  "sessions": {
+    "s_d38d57ead48d53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "35272b22-e545-4c09-974f-46608b06b576",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Yanick Kazadi <yanickkazadi@ip-192-168-0-139.eu-west-1.compute.internal>"
+    }
+  }
+}
