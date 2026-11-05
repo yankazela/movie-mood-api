@@ -55,6 +55,14 @@ export class RecommendRequest extends ValidationService {
     @IsString({ each: true })
     services?: string[];
 
+    /** Overrides the profile's music services for this request; only albums are affected. */
+    @IsOptional()
+    @IsArray()
+    @ArrayUnique()
+    @ArrayMaxSize(10)
+    @IsString({ each: true })
+    musicServices?: string[];
+
     @IsOptional()
     @IsInt()
     @Min(1)

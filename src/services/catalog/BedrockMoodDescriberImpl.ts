@@ -62,7 +62,7 @@ export class BedrockMoodDescriberImpl implements MoodDescriber {
             system: SYSTEM_PROMPT,
             tools: [this.tool],
             tool_choice: { type: "tool", name: this.tool.name },
-            messages: [{ role: "user", content: `Films:\n${prompt}` }],
+            messages: [{ role: "user", content: `Titles:\n${prompt}` }],
         });
 
         const toolUse = response.content.find(

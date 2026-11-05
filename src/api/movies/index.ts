@@ -1,7 +1,7 @@
 import { ApiResponse, ResponseService } from "@novha/cdk-lib";
 import { APIGatewayProxyEvent } from "aws-lambda";
 import { errorResponse } from "../common/responses";
-import { countryParam, intParam, listParam, mediaTypesParam, pathParam, queryParam, requireUserId } from "../common/request";
+import { countryParam, intParam, listParam, mediaTypesParam, pathParam, queryParam, requireUserId, localized } from "../common/request";
 import { ValidationError } from "../../services/common/errors";
 import { CatalogBrowseServiceImpl } from "../../services/catalog/CatalogBrowseServiceImpl";
 import { PopularSort } from "../../services/catalog/CatalogBrowseService";
@@ -10,7 +10,7 @@ import { PopularSort } from "../../services/catalog/CatalogBrowseService";
 const browseService = new CatalogBrowseServiceImpl();
 
 /** GET /movies/{itemId}. One catalogue item, with availability and rating for the caller's country. */
-export const get = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
+export const get = localized(async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
     const responseService = new ResponseService();
 
     try {
@@ -20,10 +20,10 @@ export const get = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => 
     } catch (error: any) {
         return errorResponse(error, responseService, "Error fetching movie");
     }
-};
+});
 
 /** GET /movies?ids=a,b,c. Several catalogue items at once, in the order asked for. */
-export const getMany = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
+export const getMany = localized(async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
     const responseService = new ResponseService();
 
     try {
@@ -33,10 +33,10 @@ export const getMany = async (event: APIGatewayProxyEvent): Promise<ApiResponse>
     } catch (error: any) {
         return errorResponse(error, responseService, "Error fetching movies");
     }
-};
+});
 
 /** GET /movies/search?q=. Matches titles, then directors and cast, then genres. */
-export const search = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
+export const search = localized(async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
     const responseService = new ResponseService();
 
     try {
@@ -56,10 +56,10 @@ export const search = async (event: APIGatewayProxyEvent): Promise<ApiResponse> 
     } catch (error: any) {
         return errorResponse(error, responseService, "Error searching movies");
     }
-};
+});
 
 /** GET /movies/popular?sort=popularity|rating&services=netflix,prime. What is trending where the caller lives. */
-export const popular = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
+export const popular = localized(async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
     const responseService = new ResponseService();
 
     try {
@@ -84,4 +84,4 @@ export const popular = async (event: APIGatewayProxyEvent): Promise<ApiResponse>
     } catch (error: any) {
         return errorResponse(error, responseService, "Error listing popular movies");
     }
-};
+});

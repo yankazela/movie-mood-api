@@ -139,7 +139,8 @@ describe("RevenueCatClientImpl", () => {
         const calls: { url: string; init?: RequestInit }[] = [];
         const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
             calls.push({ url: String(url), init });
-            return { ok: status >= 200 && status < 300, status, json: async () => body } as Response;
+            const response = { ok: status >= 200 && status < 300, status, json: async () => body, clone: () => response };
+            return response as unknown as Response;
         }) as typeof fetch;
 
         return { calls, fetchImpl };

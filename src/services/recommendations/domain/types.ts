@@ -124,6 +124,8 @@ export interface IRecommendInput {
     /** From the JWT when present; otherwise the profile's value is used. */
     country?: string;
     services?: string[];
+    /** Music services to filter albums by; otherwise the profile's value, and any service when that is empty too. */
+    musicServices?: string[];
     moods?: string[];
     filters?: IRequestFilters;
 }
@@ -131,7 +133,12 @@ export interface IRecommendInput {
 export interface IRecommendedItem {
     itemId: string;
     mediaType: EMediaType;
+    /** In the caller's language when the catalogue has a translation. */
     title: string;
+    /** The catalogue (English) title, only when `title` is a translation that differs from it. */
+    originalTitle?: string;
+    /** The language `title` and the details text are in. */
+    language?: string;
     year?: number;
     runtime?: number;
     genres: string[];

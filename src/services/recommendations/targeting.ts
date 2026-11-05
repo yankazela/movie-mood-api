@@ -1,4 +1,5 @@
 import { EObjective, IMoodProfile, ITarget } from "./domain/types";
+import { EMediaFamily, FAMILY_PHRASES } from "../media/MediaType";
 
 /** How far `improve` lifts valence. */
 const IMPROVE_VALENCE_LIFT = 0.5;
@@ -28,9 +29,14 @@ export function applyObjective(mood: IMoodProfile, objective: EObjective): ITarg
     };
 }
 
-/** Renders the target as the sentence that gets embedded and matched against movie embeddings. */
-export function renderTargetSentence(target: ITarget, mood: IMoodProfile): string {
-    const parts = [`A film that feels ${describeValence(target.valence)} and ${describeArousal(target.arousal)}`];
+/**
+ * Renders the target as the sentence that gets embedded and matched against the catalogue's mood
+ * embeddings. It names the medium ("A film...", "An album...") so it lands near items of that family.
+ */
+export function renderTargetSentence(target: ITarget, mood: IMoodProfile, family: EMediaFamily = EMediaFamily.VIDEO): string {
+    const phrase = FAMILY_PHRASES[family];
+    const subject = phrase.charAt(0).toUpperCase() + phrase.slice(1);
+    const parts = [`${subject} that feels ${describeValence(target.valence)} and ${describeArousal(target.arousal)}`];
 
     if (target.themes_seek.length > 0) {
         parts.push(`with ${joinNaturally(target.themes_seek)}`);

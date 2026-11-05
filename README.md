@@ -3,6 +3,7 @@
 set -a; source .env; set +a
 test -n "$TMDB_API_TOKEN" || echo "TMDB_API_TOKEN is empty" >&2
 test -n "$WEBHOOK_KEY" || echo "WEBHOOK_KEY is empty" >&2
+# Optional: SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET switch the music catalogue on (see "Music").
 
 set -a; source .env; set +a
 test -n "$GOOGLE_CLIENT_ID" || echo "GOOGLE_CLIENT_ID is empty" >&2
@@ -12,6 +13,8 @@ test -n "$FE_BASE_URL" || echo "FE_BASE_URL"
 # 1. API and catalog stacks: stop importing the vector exports
 AWS_REGION=us-east-1 npx cdk deploy --profile private --all \
   --parameters movie-mood-catalog-dev:TmdbApiToken="$TMDB_API_TOKEN" \
+  --parameters movie-mood-catalog-dev:SpotifyClientId="${SPOTIFY_CLIENT_ID:-}" \
+  --parameters movie-mood-catalog-dev:SpotifyClientSecret="${SPOTIFY_CLIENT_SECRET:-}" \
   --parameters movie-mood-stack-dev:WebhookKey="$WEBHOOK_KEY"
 
 # 2. Storage and auth stacks: now free to replace the index
@@ -97,3 +100,56 @@ aws sqs start-message-move-task --source-arn "$(output BillingEventsDeadLetterQu
    Authorization header value to `webhookAuthorization` from the secret.
 4. To try the advanced plan without buying anything, grant the `advanced` entitlement to a customer from the
    RevenueCat dashboard (a promotional grant), then call `POST /billing/sync` as that user or wait for the webhook.
+
+## Translated catalogue
+
+The catalogue refresh asks TMDB for every title's translations in the same call it already makes
+(`append_to_response=...,translations`) and stores title, tagline and overview per language on the item as `i18n`,
+e.g. `{ fr: { title: "Le Parrain", overview: "..." } }`. Languages come from `CATALOG_LANGUAGES` (default `fr,es`),
+set in the catalogue stack. Each field takes the most preferred regional version that has it (France before Canada,
+Spain before Mexico), so a missing field falls back to another region, then to English.
+
+Handlers that return catalogue items run inside the caller's language, read from `Accept-Language`
+(`localized()` in `src/api/common/request.ts`); the presenter then returns the translated title, tagline and
+overview, plus `originalTitle` and `language`. Search matches translated titles too.
+
+Existing items gain translations on the next refresh, since every discovered title is re-fetched and rewritten.
+The mood description and the embeddings stay English, so recommendations are unaffected by the language.
+
+## Music
+
+Albums are a second media family next to films and series. They live in their own Music table (storage
+stack, keyed by `itemId`), share the S3 Vectors index (filtered by `mediaType`), and are returned by the
+same `POST /recommendations` call. The storage stack must be deployed before the API and catalogue stacks
+pick up the new table exports.
+
+**Catalogue.** `SpotifyAlbumSource` runs after the TMDB sources when the catalogue stack has Spotify
+credentials: pass `SpotifyClientId` and `SpotifyClientSecret` at deploy time (a Spotify app from
+developer.spotify.com, client-credentials flow, no user login). They land in the
+`movie-mood/spotify-<stage>` secret; leave both empty and the job catalogues video only. For each country
+the source walks the market's new releases (page 1), then the albums behind the most relevant tracks of
+each genre in `MUSIC_DISCOVER_GENRES` (one genre per page), so `CATALOG_MAX_PAGES` decides how many genres
+a run covers. Singles are skipped. Albums have no blurb, so the mood describer is given the artist, year,
+label and opening tracks; genres come from the artists. Availability is read from the album's Spotify
+markets and written for every service in `MUSIC_SERVICE_SLUGS` (Spotify, Apple Music, YouTube Music,
+Deezer), since an album on Spotify in a market is, as a rule, on the others too; the Spotify page is the
+only direct link, the Providers table carries search links for the rest. Covers are stored under
+`posters/` like film posters. Note that Spotify and TMDB both use ISO country codes, so the United
+Kingdom is `GB`.
+
+**Retrieval and composition.** A request is retrieved per media family: one target sentence per family
+("A film that feels...", "An album that feels..."), one vector query per family with that family's
+filters, and re-ranking within the family so a film's popularity is never weighed against an album's.
+Runtime, genre and year constraints apply to every family; streaming services and content ratings only
+to video, and the profile's `musicServices` (or the request's override, both optional) only to albums,
+with no music services meaning any service in the country. Albums carry no certification, so a rating
+constraint would otherwise exclude them all. The result list holds `RESULT_COUNT` (8) items: the first
+family present takes the slots the others leave and each further family gets `SECONDARY_FAMILY_COUNT`
+(2); a family with too few matches hands its slots on. Results are grouped by family, so a client can
+split them into sections by `mediaType`. Ask for `mediaTypes: ["music"]` to get albums only; omit the
+field for films, series and albums together.
+
+**Items.** An album's `details` is an `IMusicDetails`: `artist`, `artists`, `albumType`, `trackCount`,
+`tracks` (first thirty titles), `label`, `explicit` and `url`. Search matches artists as well as titles,
+and `GET /movies/popular?mediaTypes=music` lists albums by popularity. Clients that only know films must
+be updated before they receive `mediaType: "music"` items.

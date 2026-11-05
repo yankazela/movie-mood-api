@@ -105,6 +105,7 @@ export class BedrockExplanationServiceImpl implements ExplanationService {
                 `- itemId: ${item.itemId}`,
                 `  type: ${nounFor(item.mediaType)}`,
                 `  title: ${item.title}${item.year ? ` (${item.year})` : ""}`,
+                typeof item.details?.artist === "string" ? `  artist: ${item.details.artist}` : "",
                 item.genres?.length ? `  genres: ${item.genres.join(", ")}` : "",
                 item.moodDesc ? `  mood: ${item.moodDesc}` : "",
             ].filter(Boolean).join("\n")),

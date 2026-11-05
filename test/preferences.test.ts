@@ -1,4 +1,4 @@
-import { expandGenres, expandRatings, expandServices, normalizeGenre, serviceIdForSlug } from "../src/services/recommendations/preferences";
+import { expandGenres, expandMusicServices, expandRatings, expandServices, normalizeGenre, serviceIdForSlug } from "../src/services/recommendations/preferences";
 import { rerank } from "../src/services/recommendations/ranking";
 import { EMediaType } from "../src/services/media/MediaType";
 
@@ -15,6 +15,13 @@ describe("expandServices", () => {
         expect(serviceIdForSlug("amazon-prime-video")).toBe("prime");
         expect(serviceIdForSlug("netflix")).toBe("netflix");
         expect(serviceIdForSlug("showmax")).toBeUndefined();
+    });
+});
+
+describe("expandMusicServices", () => {
+    test("maps the app's short ids to the slugs the music catalogue writes, keeping unknown ones", () => {
+        expect(expandMusicServices(["Spotify", "apple", "youtube", "tidal", "spotify"])).toEqual(["spotify", "apple-music", "youtube-music", "tidal"]);
+        expect(expandMusicServices([])).toEqual([]);
     });
 });
 

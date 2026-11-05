@@ -3,6 +3,12 @@ export const RESULT_COUNT = 8;
 export const CANDIDATE_COUNT = 40;
 /** At most this many of the final results may share a primary genre. */
 export const MAX_PER_GENRE = 2;
+/**
+ * When a request spans several media families (films and albums, say), each family after the
+ * first gets this many of the RESULT_COUNT slots and the first family takes the rest. A family
+ * that comes up short hands its slots to the others; see composeFamilies.
+ */
+export const SECONDARY_FAMILY_COUNT = 2;
 /** A cached "why" line older than this is regenerated. */
 export const WHY_STALE_DAYS = 30;
 /** Requests table items expire after this long. */

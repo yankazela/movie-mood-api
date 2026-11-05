@@ -1,7 +1,7 @@
 import { ApiResponse, ResponseService } from "@novha/cdk-lib";
 import { APIGatewayProxyEvent } from "aws-lambda";
 import { errorResponse } from "../common/responses";
-import { intParam, pathParam, requireUserId } from "../common/request";
+import { intParam, pathParam, requireUserId, localized } from "../common/request";
 import { parseRequest } from "../../services/common/RequestParser";
 import { HistoryServiceImpl } from "../../services/recommendations/HistoryServiceImpl";
 import { RecommendationServiceImpl } from "../../services/recommendations/RecommendationServiceImpl";
@@ -17,7 +17,7 @@ const historyService = new HistoryServiceImpl();
  * POST /recommendations, text path. The route sits behind the Cognito authorizer, so the
  * caller's identity comes from the verified JWT claims rather than the body.
  */
-export const recommend = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
+export const recommend = localized(async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
     const responseService = new ResponseService();
 
     try {
@@ -41,6 +41,7 @@ export const recommend = async (event: APIGatewayProxyEvent): Promise<ApiRespons
             // Optional custom claims; the profile is used when the token does not carry them.
             country: claims["custom:country"],
             services: request.services ?? claims["custom:services"]?.split(",").map(service => service.trim()).filter(Boolean),
+            musicServices: request.musicServices,
             filters: Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== undefined)),
         });
 
@@ -48,10 +49,10 @@ export const recommend = async (event: APIGatewayProxyEvent): Promise<ApiRespons
     } catch (error: any) {
         return errorResponse(error, responseService, "Error recommending movies");
     }
-};
+});
 
 /** GET /recommendations/history?limit=. The caller's past requests, newest first, with the titles each returned. */
-export const history = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
+export const history = localized(async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
     const responseService = new ResponseService();
 
     try {
@@ -61,10 +62,10 @@ export const history = async (event: APIGatewayProxyEvent): Promise<ApiResponse>
     } catch (error: any) {
         return errorResponse(error, responseService, "Error reading recommendation history");
     }
-};
+});
 
 /** PATCH /recommendations/{requestId}. Records the title the caller picked and/or how the results went. */
-export const recordOutcome = async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
+export const recordOutcome = localized(async (event: APIGatewayProxyEvent): Promise<ApiResponse> => {
     const responseService = new ResponseService();
 
     try {
@@ -79,4 +80,4 @@ export const recordOutcome = async (event: APIGatewayProxyEvent): Promise<ApiRes
     } catch (error: any) {
         return errorResponse(error, responseService, "Error recording the recommendation outcome");
     }
-};
+});

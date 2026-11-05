@@ -1,4 +1,5 @@
 import { ICandidate, IRankedCandidate } from "./domain/types";
+import { EMediaFamily } from "../media/MediaType";
 import { EVote, IVote } from "../users/domain/types";
 import { RANK_WEIGHTS, THUMBS_UP_BONUS } from "./config";
 import { expandGenres } from "./preferences";
@@ -70,6 +71,34 @@ export function selectDiverse(ranked: IRankedCandidate[], count: number, maxPerG
     }
 
     return chosen;
+}
+
+/**
+ * Merges rankings made per media family into one list of at most `total`. The first family with
+ * any candidates is the primary and takes every slot the others leave; each further family with
+ * candidates gets `secondaryCount`. A family that cannot fill its slots hands them on, in family
+ * order. The result is grouped by family, primary first, each family in its own rank order.
+ */
+export function composeFamilies(ranked: [EMediaFamily, IRankedCandidate[]][], total: number, secondaryCount: number): IRankedCandidate[] {
+    const families = ranked.filter(([, candidates]) => candidates.length > 0);
+
+    if (families.length === 0) {
+        return [];
+    }
+
+    const quotas = families.map((_, index) => (index === 0 ? Math.max(0, total - secondaryCount * (families.length - 1)) : secondaryCount));
+    const taken = families.map(([, candidates], index) => candidates.slice(0, quotas[index]));
+    let remaining = total - taken.reduce((sum, slice) => sum + slice.length, 0);
+
+    for (let index = 0; index < families.length && remaining > 0; index++) {
+        const [, candidates] = families[index];
+        const extra = candidates.slice(taken[index].length, taken[index].length + remaining);
+
+        taken[index] = [...taken[index], ...extra];
+        remaining -= extra.length;
+    }
+
+    return taken.flat();
 }
 
 /** 1 for this year's releases, falling linearly to 0 at thirty years old. Unknown years sit in the middle. */

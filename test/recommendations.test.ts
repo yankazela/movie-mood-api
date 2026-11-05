@@ -11,12 +11,12 @@ import {
     IRecommendationRequest,
     IRetrievalFilters,
 } from "../src/services/recommendations/domain/types";
-import { rerank, selectDiverse } from "../src/services/recommendations/ranking";
+import { composeFamilies, rerank, selectDiverse } from "../src/services/recommendations/ranking";
 import { applyObjective, renderTargetSentence } from "../src/services/recommendations/targeting";
 import { RateLimitError, SafetyError, ValidationError } from "../src/services/common/errors";
 import { ICatalogItem, IWhyEntry } from "../src/services/catalog/domain/items";
 import { CatalogItemRepository } from "../src/services/catalog/store/CatalogItemRepository";
-import { EMediaType } from "../src/services/media/MediaType";
+import { EMediaFamily, EMediaType, parseItemId } from "../src/services/media/MediaType";
 import { UserRepository } from "../src/services/users/UserRepository";
 import { EIdentityProvider, EVote, IUser } from "../src/services/users/domain/types";
 import { EPlan } from "../src/services/billing/domain/types";
@@ -60,6 +60,13 @@ describe("applyObjective", () => {
         expect(sentence).toBe(
             "A film that feels gently positive and calm, with warmth, humour, friendship and uplift, avoiding violence and grief.",
         );
+    });
+
+    test("names the medium the sentence is matched against", () => {
+        const target = applyObjective(drained, EObjective.KEEP);
+
+        expect(renderTargetSentence(target, drained, EMediaFamily.MUSIC)).toMatch(/^An album that feels melancholy and calm, /);
+        expect(renderTargetSentence(target, drained, EMediaFamily.BOOK)).toMatch(/^A book that feels /);
     });
 });
 
@@ -192,19 +199,28 @@ class FakeEmbedder implements Embedder {
     }
 }
 
+function isMusic(filters: IRetrievalFilters): boolean {
+    return filters.mediaTypes.includes(EMediaType.MUSIC);
+}
+
 class FakeRetriever implements CandidateRetriever {
     public calls: IRetrievalFilters[] = [];
     /** When set, every retrieval fails with this error. */
     public failWith?: Error;
 
-    constructor(private readonly perStage: ICandidate[][]) {}
+    /** `perStage` answers video retrievals stage by stage; `musicStages` answers music ones the same way. */
+    constructor(private readonly perStage: ICandidate[][], private readonly musicStages: ICandidate[][] = []) {}
 
     async retrieve(_vector: number[], filters: IRetrievalFilters): Promise<ICandidate[]> {
         this.calls.push(filters);
 
         if (this.failWith) throw this.failWith;
 
-        return this.perStage[Math.min(this.calls.length - 1, this.perStage.length - 1)] ?? [];
+        const music = isMusic(filters);
+        const stages = music ? this.musicStages : this.perStage;
+        const stage = this.calls.filter(call => isMusic(call) === music).length - 1;
+
+        return stages[Math.min(stage, stages.length - 1)] ?? [];
     }
 }
 
@@ -214,15 +230,21 @@ class FakeCatalogStore implements CatalogItemRepository {
     constructor(private readonly details: Record<string, Record<string, unknown>> = {}) {}
 
     async findByIds(itemIds: string[]): Promise<ICatalogItem[]> {
-        return itemIds.map(itemId => ({
-            itemId,
-            mediaType: EMediaType.MOVIE,
-            title: `Title ${itemId}`,
-            genres: ["comedy"],
-            rating: { ZA: "13" },
-            availability: { ZA: { services: ["netflix"], checkedAt: "2026-10-01T00:00:00Z" } },
-            details: this.details[itemId],
-        }));
+        return itemIds.map(itemId => {
+            // Bare ids are films; routable ids say what they are.
+            const mediaType = itemId.includes(":") ? parseItemId(itemId).mediaType : EMediaType.MOVIE;
+            const music = mediaType === EMediaType.MUSIC;
+
+            return {
+                itemId,
+                mediaType,
+                title: `Title ${itemId}`,
+                genres: music ? ["jazz"] : ["comedy"],
+                rating: music ? undefined : { ZA: "13" },
+                availability: { ZA: { services: music ? ["spotify"] : ["netflix"], checkedAt: "2026-10-01T00:00:00Z" } },
+                details: this.details[itemId],
+            };
+        });
     }
 
     async saveWhy(itemId: string, key: string, entry: IWhyEntry): Promise<void> {
@@ -265,16 +287,23 @@ function manyCandidates(count: number, prefix = "m"): ICandidate[] {
         candidate(`${prefix}${index}`, { primaryGenre: `genre${index}`, genres: [`genre${index}`], similarity: 1 - index / 100 }));
 }
 
+function manyAlbums(count: number): ICandidate[] {
+    return Array.from({ length: count }, (_, index) =>
+        candidate(`music:spotify-album:${index}`, { mediaType: EMediaType.MUSIC, primaryGenre: `style${index}`, genres: [`style${index}`], similarity: 1 - index / 100 }));
+}
+
 function build(overrides: {
     user?: IUser | null;
     mood?: IMoodProfile;
     stages?: ICandidate[][];
+    /** What the index answers for albums; nothing, unless a test says otherwise. */
+    musicStages?: ICandidate[][];
     dailyCaps?: DailyCaps;
     details?: Record<string, Record<string, unknown>>;
 } = {}) {
     const userRepository = new FakeUserRepository(overrides.user === undefined ? profile : overrides.user);
     const embedder = new FakeEmbedder();
-    const retriever = new FakeRetriever(overrides.stages ?? [manyCandidates(40)]);
+    const retriever = new FakeRetriever(overrides.stages ?? [manyCandidates(40)], overrides.musicStages);
     const catalogStore = new FakeCatalogStore(overrides.details);
     const requestRepository = new FakeRequestRepository();
     const moodResolver = new FakeMoodResolver(overrides.mood ?? drained);
@@ -304,8 +333,12 @@ describe("RecommendationServiceImpl.recommend", () => {
         expect(result.results[0]).toMatchObject({ itemId: "m0", mediaType: "movie", title: "Title m0", why: "Because Title m0", availability: { services: ["netflix"] } });
         expect(embedder.sentences[0]).toContain("gently positive");
 
-        expect(retriever.calls).toHaveLength(1);
+        // One retrieval per media family: video with the profile's services and ratings, music with neither.
+        // The index answers nothing for albums here, so that family relaxes its runtime once and stops.
+        expect(retriever.calls.filter(call => !isMusic(call))).toHaveLength(1);
+        expect(retriever.calls.filter(isMusic).map(call => call.maxRuntimeMin)).toEqual([120, undefined]);
         expect(retriever.calls[0]).toMatchObject({ mediaTypes: ["movie", "series", "documentary"], country: "ZA", maxRuntimeMin: 120 });
+        expect(retriever.calls[1]).toMatchObject({ mediaTypes: ["music"], country: "ZA", services: [], ratingsAllowed: [], maxRuntimeMin: 120 });
         expect(retriever.calls[0].services).toContain("netflix");
         // The profile's MPAA-style ceiling becomes South Africa's own certifications.
         expect(retriever.calls[0].ratingsAllowed).toEqual(expect.arrayContaining(["PG", "13"]));
@@ -434,7 +467,7 @@ describe("RecommendationServiceImpl.recommend", () => {
 
         const result = await service.recommend({ userId: "sub-1", text: "tired", objective: EObjective.IMPROVE });
 
-        expect(retriever.calls.map(call => [call.maxRuntimeMin, call.ratingsAllowed.length > 0])).toEqual([
+        expect(retriever.calls.filter(call => !isMusic(call)).map(call => [call.maxRuntimeMin, call.ratingsAllowed.length > 0])).toEqual([
             [120, true],
             [undefined, true],
             [undefined, false],
@@ -505,6 +538,97 @@ describe("RecommendationServiceImpl.recommend", () => {
         const result = await service.recommend({ userId: "sub-1", text: "tired", objective: EObjective.KEEP });
 
         expect(result.results[0].rating).toBe("13");
+    });
+});
+
+describe("RecommendationServiceImpl across media families", () => {
+    const ask = { userId: "sub-1", text: "tired", objective: EObjective.KEEP };
+
+    test("retrieves albums with their own filters and sentence, then composes six titles and two albums", async () => {
+        const { service, retriever, embedder } = build({ musicStages: [manyAlbums(10)], user: { ...profile, musicServices: ["spotify", "apple"] } });
+
+        const result = await service.recommend(ask);
+
+        expect(retriever.calls.find(isMusic)).toMatchObject({
+            mediaTypes: ["music"], country: "ZA", services: ["spotify", "apple-music"], ratingsAllowed: [], maxRuntimeMin: 120,
+        });
+        expect(embedder.sentences).toEqual([expect.stringMatching(/^A film that feels/), expect.stringMatching(/^An album that feels/)]);
+        expect(result.results.map(item => item.mediaType)).toEqual([...Array(6).fill("movie"), "music", "music"]);
+        expect(result.results.slice(6)).toEqual([
+            expect.objectContaining({ itemId: "music:spotify-album:0", availability: expect.objectContaining({ services: ["spotify"] }), rating: undefined }),
+            expect.objectContaining({ itemId: "music:spotify-album:1" }),
+        ]);
+        expect(result.notice).toBeUndefined();
+    });
+
+    test("hands unfilled album slots to titles, and unfilled title slots to albums", async () => {
+        const oneAlbum = await build({ musicStages: [manyAlbums(1)] }).service.recommend(ask);
+
+        expect(oneAlbum.results.map(item => item.mediaType)).toEqual([...Array(7).fill("movie"), "music"]);
+        expect(oneAlbum.notice).toBeUndefined();
+
+        const fewTitles = await build({ stages: [manyCandidates(3)], musicStages: [manyAlbums(10)] }).service.recommend(ask);
+
+        expect(fewTitles.results.map(item => item.mediaType)).toEqual([...Array(3).fill("movie"), ...Array(5).fill("music")]);
+        expect(fewTitles.notice).toBeUndefined();
+    });
+
+    test("returns albums alone when the caller asks for music only, relaxing runtime but never a rating", async () => {
+        const { service, retriever } = build({ musicStages: [manyAlbums(3), manyAlbums(10)] });
+
+        const result = await service.recommend({ ...ask, mediaTypes: [EMediaType.MUSIC] });
+
+        expect(retriever.calls.map(call => [call.mediaTypes, call.maxRuntimeMin, call.ratingsAllowed])).toEqual([
+            [["music"], 120, []],
+            [["music"], undefined, []],
+        ]);
+        expect(result.results).toHaveLength(8);
+        expect(result.results.every(item => item.mediaType === "music")).toBe(true);
+    });
+
+    test("a music services override on the request wins over the profile", async () => {
+        const { service, retriever } = build({ user: { ...profile, musicServices: ["spotify"] } });
+
+        await service.recommend({ ...ask, musicServices: ["deezer"] });
+
+        expect(retriever.calls.find(isMusic)?.services).toEqual(["deezer"]);
+    });
+
+    test("flags few matches only when every family together falls short", async () => {
+        const result = await build({ stages: [manyCandidates(2), manyCandidates(2), manyCandidates(2)], musicStages: [manyAlbums(3)] }).service.recommend(ask);
+
+        expect(result.results.map(item => item.mediaType)).toEqual(["movie", "movie", "music", "music", "music"]);
+        expect(result.notice).toBe("few_matches");
+    });
+});
+
+describe("composeFamilies", () => {
+    const ranked = (prefix: string, count: number) =>
+        Array.from({ length: count }, (_, index) => ({ ...candidate(`${prefix}${index}`), score: 1 - index / 10 }));
+
+    test("gives the first family the slots the others leave, grouped by family", () => {
+        const out = composeFamilies([[EMediaFamily.VIDEO, ranked("v", 8)], [EMediaFamily.MUSIC, ranked("m", 8)]], 8, 2);
+
+        expect(out.map(item => item.itemId)).toEqual(["v0", "v1", "v2", "v3", "v4", "v5", "m0", "m1"]);
+    });
+
+    test("tops up from whichever family still has candidates", () => {
+        const out = composeFamilies([[EMediaFamily.VIDEO, ranked("v", 2)], [EMediaFamily.MUSIC, ranked("m", 8)]], 8, 2);
+
+        expect(out.map(item => item.itemId)).toEqual(["v0", "v1", "m0", "m1", "m2", "m3", "m4", "m5"]);
+    });
+
+    test("ignores empty families and returns everything when all are short", () => {
+        const out = composeFamilies([[EMediaFamily.VIDEO, []], [EMediaFamily.MUSIC, ranked("m", 3)]], 8, 2);
+
+        expect(out.map(item => item.itemId)).toEqual(["m0", "m1", "m2"]);
+        expect(composeFamilies([], 8, 2)).toEqual([]);
+    });
+
+    test("splits three families as four, two and two", () => {
+        const out = composeFamilies([[EMediaFamily.VIDEO, ranked("v", 8)], [EMediaFamily.MUSIC, ranked("m", 8)], [EMediaFamily.BOOK, ranked("b", 8)]], 8, 2);
+
+        expect(out.map(item => item.itemId)).toEqual(["v0", "v1", "v2", "v3", "m0", "m1", "b0", "b1"]);
     });
 });
 

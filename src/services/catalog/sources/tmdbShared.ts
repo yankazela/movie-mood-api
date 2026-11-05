@@ -1,5 +1,5 @@
-import { TmdbCountryProviders, TmdbCredits, TmdbGenre, TmdbProviderRef } from "../TmdbClient";
-import { IAvailability } from "../domain/items";
+import { TmdbCountryProviders, TmdbCredits, TmdbGenre, TmdbProviderRef, TmdbTranslation } from "../TmdbClient";
+import { IAvailability, ILocalizedText } from "../domain/items";
 import { IProvider } from "../domain/types";
 import { DEEP_LINK_TEMPLATES } from "../config";
 
@@ -61,6 +61,49 @@ export function availabilityFor(
     }
 
     return availability;
+}
+
+/** Regions whose version of a language is preferred, in order; others follow in TMDB's order. */
+const PREFERRED_REGIONS: Record<string, string[]> = {
+    fr: ["FR", "CA", "BE", "CH"],
+    es: ["ES", "MX", "US", "AR", "CO"],
+    pt: ["BR", "PT"],
+    de: ["DE", "AT", "CH"],
+};
+
+/**
+ * Title, tagline and overview for each wanted language. Each field comes from the most preferred
+ * regional version that has it, so a missing Spanish-from-Spain overview falls back to the Mexican
+ * one. A language with no translated text at all is left out, and the reader falls back to English.
+ */
+export function localizedTexts(translations: TmdbTranslation[] | undefined, languages: string[]): Record<string, ILocalizedText> | undefined {
+    const result: Record<string, ILocalizedText> = {};
+
+    for (const language of languages) {
+        const preferred = PREFERRED_REGIONS[language] ?? [language.toUpperCase()];
+        const versions = (translations ?? [])
+            .filter(translation => translation.iso_639_1 === language)
+            .sort((a, b) => rank(preferred, a.iso_3166_1) - rank(preferred, b.iso_3166_1));
+        const pick = (field: (data: TmdbTranslation["data"]) => string | undefined) =>
+            versions.map(version => field(version.data)?.trim()).find((text): text is string => Boolean(text));
+        const text: ILocalizedText = {
+            title: pick(data => data.title ?? data.name),
+            tagline: pick(data => data.tagline),
+            overview: pick(data => data.overview),
+        };
+        const present = Object.fromEntries(Object.entries(text).filter(([, value]) => value !== undefined)) as ILocalizedText;
+
+        if (Object.keys(present).length > 0) {
+            result[language] = present;
+        }
+    }
+
+    return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function rank(preferred: string[], region: string): number {
+    const index = preferred.indexOf(region);
+    return index === -1 ? preferred.length : index;
 }
 
 export function providerFrom(ref: TmdbProviderRef, country: string, logoKey: string | undefined): IProvider {

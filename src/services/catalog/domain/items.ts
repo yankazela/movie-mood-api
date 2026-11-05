@@ -14,6 +14,13 @@ export interface IAvailability {
     checkedAt: string;
 }
 
+/** A title's text in another language. Fields TMDB has no translation for are left out. */
+export interface ILocalizedText {
+    title?: string;
+    tagline?: string;
+    overview?: string;
+}
+
 /** Media-specific fields for films, series and documentaries. */
 export type IVideoDetails = {
     kind: "film" | "show";
@@ -29,6 +36,23 @@ export type IVideoDetails = {
     /** A film's director, or a series' creators. */
     director?: string;
     cast?: { name: string; character?: string }[];
+};
+
+/** Media-specific fields for albums. */
+export type IMusicDetails = {
+    kind: "album";
+    /** Every credited artist, joined: "Artist A, Artist B". */
+    artist: string;
+    artists: string[];
+    albumType: "album" | "compilation";
+    trackCount: number;
+    /** Track titles in order, up to the first thirty. */
+    tracks: string[];
+    label?: string;
+    /** True when any track is marked explicit. */
+    explicit: boolean;
+    /** The album's page on the source service. */
+    url?: string;
 };
 
 /**
@@ -57,6 +81,8 @@ export interface ICatalogItem {
     why?: Record<string, IWhyEntry>;
     /** Media-specific fields, e.g. IVideoDetails. */
     details?: Record<string, unknown>;
+    /** Title, tagline and overview in other languages, keyed by ISO 639-1 code, e.g. { fr: { title: "Le Parrain" } }. */
+    i18n?: Record<string, ILocalizedText>;
 }
 
 /** What the catalogue job writes; the `why` cache is owned by the recommender. */

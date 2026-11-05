@@ -23,6 +23,21 @@ export function expandServices(services: string[]): string[] {
     return [...new Set(slugs.filter(Boolean))];
 }
 
+/** Short ids the app may use for music services, mapped to the slugs the music catalogue writes in availability. */
+const MUSIC_SERVICE_ALIASES: Record<string, string[]> = {
+    spotify: ["spotify"],
+    apple: ["apple-music"],
+    youtube: ["youtube-music"],
+    deezer: ["deezer"],
+};
+
+/** Catalogue slugs for the user's music services; unknown values are kept as they are. */
+export function expandMusicServices(services: string[]): string[] {
+    const slugs = services.flatMap(service => MUSIC_SERVICE_ALIASES[service.trim().toLowerCase()] ?? [service.trim().toLowerCase()]);
+
+    return [...new Set(slugs.filter(Boolean))];
+}
+
 /** The app service id for a catalogue provider slug, when it is one the app knows. */
 export function serviceIdForSlug(slug: string): string | undefined {
     return Object.entries(SERVICE_ALIASES).find(([, slugs]) => slugs.includes(slug))?.[0];

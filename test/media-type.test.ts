@@ -1,4 +1,4 @@
-import { ACTIVE_MEDIA_TYPES, EMediaFamily, EMediaType, buildItemId, familyOf, nounFor, parseItemId } from "../src/services/media/MediaType";
+import { ACTIVE_MEDIA_TYPES, EMediaFamily, EMediaType, buildItemId, familiesOf, familyOf, mediaTypesInFamily, nounFor, parseItemId } from "../src/services/media/MediaType";
 
 describe("media types", () => {
     test("item ids carry the media type and the source so they can be routed", () => {
@@ -23,7 +23,15 @@ describe("media types", () => {
         expect(nounFor(EMediaType.MUSIC)).toBe("album");
     });
 
-    test("only video is active for the first release", () => {
-        expect(ACTIVE_MEDIA_TYPES).toEqual([EMediaType.MOVIE, EMediaType.SERIES, EMediaType.DOCUMENTARY]);
+    test("video and music are active; books wait for a catalogue source", () => {
+        expect(ACTIVE_MEDIA_TYPES).toEqual([EMediaType.MOVIE, EMediaType.SERIES, EMediaType.DOCUMENTARY, EMediaType.MUSIC]);
+    });
+
+    test("groups requested types by family, in composition order", () => {
+        const requested = [EMediaType.MUSIC, EMediaType.DOCUMENTARY, EMediaType.MOVIE];
+
+        expect(familiesOf(requested)).toEqual([EMediaFamily.VIDEO, EMediaFamily.MUSIC]);
+        expect(mediaTypesInFamily(requested, EMediaFamily.VIDEO)).toEqual([EMediaType.DOCUMENTARY, EMediaType.MOVIE]);
+        expect(mediaTypesInFamily(requested, EMediaFamily.BOOK)).toEqual([]);
     });
 });

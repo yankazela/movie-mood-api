@@ -12,18 +12,20 @@ import { UnconfiguredCandidateRetriever } from "./UnconfiguredCandidateRetriever
 import { RequestRepositoryImpl } from "./RequestRepositoryImpl";
 import { TitanEmbedderImpl } from "./TitanEmbedderImpl";
 import { applyObjective, renderTargetSentence } from "./targeting";
-import { rerank, selectDiverse } from "./ranking";
-import { expandGenres, expandRatings, expandServices } from "./preferences";
+import { composeFamilies, rerank, selectDiverse } from "./ranking";
+import { expandGenres, expandMusicServices, expandRatings, expandServices } from "./preferences";
 import {
     CANDIDATE_COUNT,
     DEFAULT_SUPPORTIVE_MESSAGE,
     MAX_PER_GENRE,
     REQUEST_TTL_DAYS,
     RESULT_COUNT,
+    SECONDARY_FAMILY_COUNT,
 } from "./config";
 import {
     EInputType,
     ICandidate,
+    IMoodProfile,
     IRankedCandidate,
     IRecommendInput,
     IRecommendationResult,
@@ -34,7 +36,7 @@ import {
 import { CatalogItemRepository } from "../catalog/store/CatalogItemRepository";
 import { CatalogStore } from "../catalog/store/CatalogStore";
 import { toRecommendedItem } from "../catalog/presenter";
-import { ACTIVE_MEDIA_TYPES } from "../media/MediaType";
+import { ACTIVE_MEDIA_TYPES, EMediaFamily, EMediaType, familiesOf, mediaTypesInFamily } from "../media/MediaType";
 import { UserRepository } from "../users/UserRepository";
 import { UserRepositoryImpl } from "../users/UserRepositoryImpl";
 import { IUser } from "../users/domain/types";
@@ -129,9 +131,8 @@ export class RecommendationServiceImpl implements RecommendationService {
         }
     }
 
-    /** The pipeline proper: resolve, target, retrieve and rank, explain, persist. */
+    /** The pipeline proper: resolve, target, retrieve and rank per family, compose, explain, persist. */
     private async run(input: IRecommendInput, user: IUser, country: string, startedAt: Date): Promise<Omit<IRecommendationResult, "usage">> {
-        const services = expandServices(input.services ?? user.services ?? []);
         const requested = input.filters ?? {};
 
         // Resolve: one model call turns the text, and any moods the user ticked, into a mood profile.
@@ -144,18 +145,22 @@ export class RecommendationServiceImpl implements RecommendationService {
         // Target: apply the objective to the mood vector.
         const target = applyObjective(moodProfile, input.objective);
 
-        // Embed and retrieve, then re-rank; constraints relax if too few titles survive.
-        const vector = await this.embedder.embed(renderTargetSentence(target, moodProfile));
-        const filters: IRetrievalFilters = {
-            mediaTypes: input.mediaTypes?.length ? input.mediaTypes : ACTIVE_MEDIA_TYPES,
-            country,
-            services,
-            ratingsAllowed: expandRatings(country, user.ratingsAllowed ?? []),
-            maxRuntimeMin: smallest(moodProfile.constraints.max_runtime_min, requested.maxRuntimeMin),
-            genres: requested.genres?.length ? expandGenres(requested.genres) : undefined,
-            minYear: requested.releaseYearMin,
-        };
-        const { chosen, notice } = await this.retrieveAndRank(vector, filters, user, requested);
+        // Retrieve and rank each media family on its own. The target sentence names the medium, the
+        // filters carry only the constraints the family has (albums have no certifications), and
+        // scores are normalised within the family, so a film's popularity is never weighed against
+        // an album's. Constraints relax per family if too few items survive.
+        const mediaTypes = input.mediaTypes?.length ? input.mediaTypes : ACTIVE_MEDIA_TYPES;
+        const ranked = await Promise.all(familiesOf(mediaTypes).map(async (family): Promise<[EMediaFamily, IRankedCandidate[]]> => {
+            const vector = await this.embedder.embed(renderTargetSentence(target, moodProfile, family));
+            const filters = this.filtersFor(family, mediaTypesInFamily(mediaTypes, family), country, user, input, moodProfile, requested);
+
+            return [family, await this.retrieveAndRank(vector, filters, user, requested)];
+        }));
+
+        // Compose: the first family fills most of the list, each further family gets a few slots,
+        // and a family that comes up short hands its slots to the others.
+        const chosen = composeFamilies(ranked, RESULT_COUNT, SECONDARY_FAMILY_COUNT);
+        const notice = chosen.length < RESULT_COUNT ? "few_matches" : undefined;
 
         // Explain: metadata, availability and why lines.
         const items = await this.catalogStore.findByIds(chosen.map(candidate => candidate.itemId));
@@ -199,16 +204,56 @@ export class RecommendationServiceImpl implements RecommendationService {
     }
 
     /**
-     * Retrieves with the full filters first. If fewer than RESULT_COUNT titles survive re-ranking,
+     * The retrieval constraints for one media family. Runtime, genre and year apply to every family;
+     * services and content ratings are the family's own, since a streaming service says nothing
+     * about where an album plays and no album carries a certification.
+     */
+    private filtersFor(
+        family: EMediaFamily,
+        mediaTypes: EMediaType[],
+        country: string,
+        user: IUser,
+        input: IRecommendInput,
+        moodProfile: IMoodProfile,
+        requested: IRequestFilters,
+    ): IRetrievalFilters {
+        const shared = {
+            mediaTypes,
+            country,
+            maxRuntimeMin: smallest(moodProfile.constraints.max_runtime_min, requested.maxRuntimeMin),
+            genres: requested.genres?.length ? expandGenres(requested.genres) : undefined,
+            minYear: requested.releaseYearMin,
+        };
+
+        switch (family) {
+            case EMediaFamily.VIDEO:
+                return {
+                    ...shared,
+                    services: expandServices(input.services ?? user.services ?? []),
+                    ratingsAllowed: expandRatings(country, user.ratingsAllowed ?? []),
+                };
+            case EMediaFamily.MUSIC:
+                return {
+                    ...shared,
+                    services: expandMusicServices(input.musicServices ?? user.musicServices ?? []),
+                    ratingsAllowed: [],
+                };
+            default:
+                return { ...shared, services: [], ratingsAllowed: [] };
+        }
+    }
+
+    /**
+     * Retrieves with the full filters first. If fewer than RESULT_COUNT items survive re-ranking,
      * the runtime constraint is dropped, then the rating constraint, each time retrieving again and
-     * merging into the candidate pool. A "few_matches" notice is returned if that still falls short.
+     * merging into the candidate pool. Returns the best RESULT_COUNT found, which may be fewer.
      */
     private async retrieveAndRank(
         vector: number[],
         filters: IRetrievalFilters,
         user: IUser,
         requested: IRequestFilters,
-    ): Promise<{ chosen: IRankedCandidate[]; notice?: "few_matches" }> {
+    ): Promise<IRankedCandidate[]> {
         const personal = { genrePrefs: user.genrePrefs ?? {}, votes: user.votes ?? {}, watched: user.watched ?? [] };
         const pool = new Map<string, ICandidate>();
         let chosen: IRankedCandidate[] = [];
@@ -228,11 +273,11 @@ export class RecommendationServiceImpl implements RecommendationService {
             chosen = selectDiverse(rerank([...pool.values()], personal), RESULT_COUNT, MAX_PER_GENRE);
 
             if (chosen.length >= RESULT_COUNT) {
-                return { chosen };
+                break;
             }
         }
 
-        return { chosen, notice: "few_matches" };
+        return chosen;
     }
 
     /** Drops candidates whose catalogue entry says they miss the score or language asked for; unknowns pass. */

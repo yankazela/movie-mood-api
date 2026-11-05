@@ -112,6 +112,14 @@ export class MovieMoodApiStack extends Stack {
 			Fn.importValue(`${props.projectName}-MoviesTableArn-${props.stage}`)
 		);
 		const moviesTableName = Fn.importValue(`${props.projectName}-MoviesTableName-${props.stage}`);
+		// Albums live in their own table; the catalogue store routes by media family, so every handler
+		// that reads catalogue items is given both tables.
+		const musicTable = Table.fromTableArn(
+			this,
+			"MusicTable",
+			Fn.importValue(`${props.projectName}-MusicTableArn-${props.stage}`)
+		);
+		const musicTableName = Fn.importValue(`${props.projectName}-MusicTableName-${props.stage}`);
 		const userPool = UserPool.fromUserPoolArn(
 			this,
 			"UserPool",
@@ -155,12 +163,14 @@ export class MovieMoodApiStack extends Stack {
             {
                 USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
                 MOVIES_TABLE_NAME: moviesTableName,
+                MUSIC_TABLE_NAME: musicTableName,
                 USER_POOL_ID: userPool.userPoolId,
                 ...planEnvironment,
             }
 		);
 		usersTable.grantReadWriteData(updateUserHandler);
 		moviesTable.grantReadData(updateUserHandler);
+		musicTable.grantReadData(updateUserHandler);
 		userPool.grant(updateUserHandler, "cognito-idp:AdminUpdateUserAttributes");
 
 		const userResource = baseResource.addResource('user');
@@ -177,12 +187,14 @@ export class MovieMoodApiStack extends Stack {
             {
                 USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
                 MOVIES_TABLE_NAME: moviesTableName,
+                MUSIC_TABLE_NAME: musicTableName,
                 USER_POOL_ID: userPool.userPoolId,
                 ...planEnvironment,
             }
 		);
 		usersTable.grantReadData(meHandler);
 		moviesTable.grantReadData(meHandler);
+		musicTable.grantReadData(meHandler);
 		userResource.addResource('me').addMethod('GET', new LambdaIntegration(meHandler), {
 			authorizer,
 			authorizationType: AuthorizationType.COGNITO,
@@ -193,6 +205,7 @@ export class MovieMoodApiStack extends Stack {
 		const authEnvironment = {
 			USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
 			MOVIES_TABLE_NAME: moviesTableName,
+			MUSIC_TABLE_NAME: musicTableName,
 			USER_POOL_ID: userPool.userPoolId,
 			USER_POOL_CLIENT_ID: Fn.importValue(`${props.projectName}-UserPoolClientId-${props.stage}`),
 			...planEnvironment,
@@ -221,6 +234,7 @@ export class MovieMoodApiStack extends Stack {
                 USER_POOL_CLIENT_ID: Fn.importValue(`${props.projectName}-UserPoolClientId-${props.stage}`),
                 USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
                 MOVIES_TABLE_NAME: moviesTableName,
+                MUSIC_TABLE_NAME: musicTableName,
             }
 		);
 		userPool.grant(refreshHandler, "cognito-idp:AdminInitiateAuth");
@@ -228,7 +242,9 @@ export class MovieMoodApiStack extends Stack {
 		usersTable.grantReadData(signInHandler);
 		usersTable.grantReadData(newPasswordHandler);
 		moviesTable.grantReadData(signInHandler);
+		musicTable.grantReadData(signInHandler);
 		moviesTable.grantReadData(newPasswordHandler);
+		musicTable.grantReadData(newPasswordHandler);
 
 		const authResource = baseResource.addResource('auth');
 		authResource
@@ -259,6 +275,7 @@ export class MovieMoodApiStack extends Stack {
                 USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
                 REQUESTS_TABLE_NAME: Fn.importValue(`${props.projectName}-RequestsTableName-${props.stage}`),
                 MOVIES_TABLE_NAME: moviesTableName,
+                MUSIC_TABLE_NAME: musicTableName,
                 MOOD_MODEL_ID: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
                 EMBEDDING_MODEL_ID: "amazon.titan-embed-text-v2:0",
                 ...planEnvironment,
@@ -271,6 +288,7 @@ export class MovieMoodApiStack extends Stack {
 		usersTable.grantReadWriteData(recommendHandler);
 		requestsTable.grantWriteData(recommendHandler);
 		moviesTable.grantReadWriteData(recommendHandler);
+		musicTable.grantReadWriteData(recommendHandler);
 		// Bedrock runtime: Claude Haiku 4.5 through its US cross-region inference profile (which needs
 		// the profile plus the underlying model in every region it routes to) and Titan embeddings.
 		recommendHandler.addToRolePolicy(new PolicyStatement({
@@ -296,6 +314,7 @@ export class MovieMoodApiStack extends Stack {
 			USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
 			REQUESTS_TABLE_NAME: Fn.importValue(`${props.projectName}-RequestsTableName-${props.stage}`),
 			MOVIES_TABLE_NAME: moviesTableName,
+			MUSIC_TABLE_NAME: musicTableName,
 		};
 		const historyHandler = this.createHandler(
 			"index.history",
@@ -312,6 +331,7 @@ export class MovieMoodApiStack extends Stack {
 		for (const handler of [historyHandler, outcomeHandler]) {
 			usersTable.grantReadData(handler);
 			moviesTable.grantReadData(handler);
+			musicTable.grantReadData(handler);
 		}
 		requestsTable.grantReadData(historyHandler);
 		requestsTable.grantReadWriteData(outcomeHandler);
@@ -322,6 +342,7 @@ export class MovieMoodApiStack extends Stack {
 		const moviesEnvironment = {
 			USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
 			MOVIES_TABLE_NAME: moviesTableName,
+			MUSIC_TABLE_NAME: musicTableName,
 		};
 		const moviesResource = baseResource.addResource('movies');
 		const movieRoutes: { handler: string; name: string; resource: IResource }[] = [
@@ -341,6 +362,7 @@ export class MovieMoodApiStack extends Stack {
 			);
 			usersTable.grantReadData(handler);
 			moviesTable.grantReadData(handler);
+			musicTable.grantReadData(handler);
 			route.resource.addMethod('GET', new LambdaIntegration(handler), authorized);
 		}
 
@@ -401,6 +423,7 @@ export class MovieMoodApiStack extends Stack {
 		const billingEnvironment = {
 			USERS_TABLE_NAME: Fn.importValue(`${props.projectName}-UsersTableName-${props.stage}`),
 			MOVIES_TABLE_NAME: moviesTableName,
+			MUSIC_TABLE_NAME: musicTableName,
 			REVENUECAT_SECRET_ARN: revenueCatSecret.secretArn,
 			REVENUECAT_ENTITLEMENT_ID: "upmymood_pro",
 			...planEnvironment,
@@ -425,6 +448,7 @@ export class MovieMoodApiStack extends Stack {
 		for (const handler of [billingProcessHandler, billingSyncHandler]) {
 			usersTable.grantReadWriteData(handler);
 			moviesTable.grantReadData(handler);
+			musicTable.grantReadData(handler);
 			revenueCatSecret.grantRead(handler);
 		}
 		const billingResource = baseResource.addResource('billing');

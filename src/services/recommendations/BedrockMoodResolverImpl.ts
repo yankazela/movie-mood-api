@@ -14,7 +14,7 @@ const MoodProfileSchema = z.object({
     themes_avoid: z.array(z.string()).max(6).describe("Lowercase themes to steer clear of"),
     constraints: z.object({
         max_runtime_min: z.number().int().positive().optional()
-            .describe("Only when the message implies limited time or energy for a long film"),
+            .describe("Only when the message implies limited time or energy for something long"),
     }),
     confidence: z.number().min(0).max(1).describe("How sure the reading is"),
     safety_flag: z.boolean().describe("True only when the person may be at risk of harm or in acute crisis"),
@@ -23,7 +23,7 @@ const MoodProfileSchema = z.object({
 });
 
 const SYSTEM_PROMPT = [
-    "You read a short message someone wrote about how they feel, so a movie recommender can pick films for them.",
+    "You read a short message someone wrote about how they feel, so a recommender can pick films, series and albums for them.",
     "Always respond by calling the mood_profile tool exactly once; never answer in prose.",
     "Set safety_flag to true only when the message suggests the person may be at risk of harming themselves or others,",
     "or is in acute crisis. In that case also fill supportive_message with two or three warm, non-clinical sentences",
