@@ -30,12 +30,24 @@ const catalogue: ICatalogItem[] = [
     item("5", { title: "Planet Earth", mediaType: EMediaType.DOCUMENTARY, itemId: "documentary:tmdb-tv:5", popularity: 60, genres: ["documentary"], details: { kind: "show", voteAverage: 8.9, voteCount: 5000 } }),
 ];
 
+const albums: ICatalogItem[] = [
+    {
+        itemId: "music:spotify-album:1", mediaType: EMediaType.MUSIC, title: "Blue Train", genres: ["jazz"], popularity: 65, year: 1958, runtime: 42,
+        availability: { ZA: { services: ["spotify", "apple-music"], checkedAt }, US: { services: ["spotify"], checkedAt } },
+        details: { kind: "album", artist: "John Coltrane", artists: ["John Coltrane"], albumType: "album", trackCount: 5, tracks: ["Blue Train"], explicit: false },
+    },
+];
+
 class FakeScanner implements CatalogScanner {
     public scans = 0;
 
     async scanVideo(): Promise<ICatalogItem[]> {
         this.scans += 1;
         return catalogue;
+    }
+
+    async scanMusic(): Promise<ICatalogItem[]> {
+        return albums;
     }
 }
 
@@ -119,6 +131,16 @@ describe("CatalogBrowseServiceImpl.search", () => {
         expect(byActor.map(result => result.title)).toEqual(["The Matrix", "John Wick"]);
     });
 
+    test("finds albums by artist, with no rating and the music services they play on", async () => {
+        const { service } = build("ZA");
+
+        const [album] = await service.search("u1", { query: "coltrane" });
+
+        expect(album).toMatchObject({ itemId: "music:spotify-album:1", mediaType: "music", title: "Blue Train", availability: { services: ["spotify", "apple-music"] } });
+        expect(album.rating).toBeUndefined();
+        expect(searchScore(albums[0], "coltrane")).toBe(40);
+    });
+
     test("narrows availability and rating to the requested country", async () => {
         const { service } = build("ZA");
 
@@ -155,6 +177,14 @@ describe("CatalogBrowseServiceImpl.popular", () => {
         const results = await service.popular("u1", { limit: 2 });
 
         expect(results.map(result => result.title)).toEqual(["The Matrix", "John Wick"]);
+    });
+
+    test("lists albums on their own when asked for music", async () => {
+        const { service } = build("ZA");
+
+        const results = await service.popular("u1", { mediaTypes: [EMediaType.MUSIC] });
+
+        expect(results.map(result => result.title)).toEqual(["Blue Train"]);
     });
 
     test("can be limited to the user's own services, given in the app's vocabulary", async () => {

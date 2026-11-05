@@ -3,7 +3,7 @@ import { EFeedback } from "../recommendations/domain/types";
 import { IEntitlement } from "../billing/domain/types";
 
 /** Top-level profile fields that can be overwritten in place. */
-export type UserFieldChanges = Partial<Pick<IUser, "fullName" | "country" | "services" | "ratingsAllowed" | "genrePrefs" | "myMovies" | "watched" | "fullyOnboarded" | "onboardedAt">>;
+export type UserFieldChanges = Partial<Pick<IUser, "fullName" | "country" | "services" | "musicServices" | "ratingsAllowed" | "genrePrefs" | "myMovies" | "watched" | "fullyOnboarded" | "onboardedAt">>;
 
 /** Per-item changes to the maps on a profile, applied entry by entry so concurrent edits do not clash. */
 export interface UserMapChanges {

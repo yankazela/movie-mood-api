@@ -41,6 +41,7 @@ export const recommend = localized(async (event: APIGatewayProxyEvent): Promise<
             // Optional custom claims; the profile is used when the token does not carry them.
             country: claims["custom:country"],
             services: request.services ?? claims["custom:services"]?.split(",").map(service => service.trim()).filter(Boolean),
+            musicServices: request.musicServices,
             filters: Object.fromEntries(Object.entries(filters).filter(([, value]) => value !== undefined)),
         });
 

@@ -1,7 +1,7 @@
 import { CatalogBrowseService, IPopularInput, ISearchInput } from "./CatalogBrowseService";
 import { CatalogScanner } from "./CatalogScanner";
 import { DynamoCatalogScannerImpl } from "./DynamoCatalogScannerImpl";
-import { ICatalogItem, IVideoDetails } from "./domain/items";
+import { ICatalogItem, IMusicDetails, IVideoDetails } from "./domain/items";
 import { toRecommendedItem } from "./presenter";
 import { CatalogItemRepository } from "./store/CatalogItemRepository";
 import { CatalogStore } from "./store/CatalogStore";
@@ -111,9 +111,12 @@ export class CatalogBrowseServiceImpl implements CatalogBrowseService {
             .map(item => toRecommendedItem(item, code));
     }
 
+    /** Every family's table, scanned together. */
     private async catalogue(): Promise<ICatalogItem[]> {
         if (!this.cache || this.now() - this.cache.loadedAt > CACHE_TTL_MS) {
-            this.cache = { items: await this.scanner.scanVideo(), loadedAt: this.now() };
+            const [video, music] = await Promise.all([this.scanner.scanVideo(), this.scanner.scanMusic()]);
+
+            this.cache = { items: [...video, ...music], loadedAt: this.now() };
         }
 
         return this.cache.items;
@@ -170,7 +173,7 @@ function voteCount(item: ICatalogItem): number {
     return detailsOf(item).voteCount ?? 0;
 }
 
-/** 0 when the item does not match. Titles outrank people, who outrank genres. */
+/** 0 when the item does not match. Titles outrank people (directors, cast, artists), who outrank genres. */
 export function searchScore(item: ICatalogItem, query: string): number {
     // The English title and every translated one: "le parrain" finds The Godfather.
     const titles = [item.title, ...Object.values(item.i18n ?? {}).map(text => text.title)].filter((title): title is string => Boolean(title)).map(normalize);
@@ -186,7 +189,8 @@ export function searchScore(item: ICatalogItem, query: string): number {
     if (best > 0) return best;
 
     const details = detailsOf(item);
-    const people = [details.director, ...(details.cast ?? []).map(member => member.name)].filter((name): name is string => Boolean(name));
+    const artists = ((item.details ?? {}) as Partial<IMusicDetails>).artists ?? [];
+    const people = [details.director, ...(details.cast ?? []).map(member => member.name), ...artists].filter((name): name is string => Boolean(name));
 
     if (people.some(name => normalize(name).includes(query))) return 40;
     if ((item.genres ?? []).some(genre => normalizeGenre(genre).includes(normalizeGenre(query)))) return 20;

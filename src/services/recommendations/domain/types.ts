@@ -124,6 +124,8 @@ export interface IRecommendInput {
     /** From the JWT when present; otherwise the profile's value is used. */
     country?: string;
     services?: string[];
+    /** Music services to filter albums by; otherwise the profile's value, and any service when that is empty too. */
+    musicServices?: string[];
     moods?: string[];
     filters?: IRequestFilters;
 }

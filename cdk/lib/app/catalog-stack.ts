@@ -12,8 +12,9 @@ import { Construct } from "constructs";
 import { VECTOR_INDEX_NAME, vectorBucketName, vectorIndexArn as buildVectorIndexArn } from "../shared/vector-store";
 
 /**
- * The nightly catalog-refresh job: pulls popular streamable films from TMDB, writes metadata,
- * availability and posters, and embeds each film's mood into the S3 Vectors index.
+ * The nightly catalog-refresh job: pulls popular streamable films and series from TMDB and albums
+ * from Spotify, writes metadata, availability and covers, and embeds each item's mood into the
+ * S3 Vectors index.
  */
 export class MovieMoodCatalogStack extends Stack {
 	constructor(scope: Construct, id: string, props: CommonProps) {
@@ -22,6 +23,7 @@ export class MovieMoodCatalogStack extends Stack {
 		const importName = (name: string) => Fn.importValue(`${props.projectName}-${name}-${props.stage}`);
 
 		const moviesTable = Table.fromTableArn(this, "MoviesTable", importName("MoviesTableArn"));
+		const musicTable = Table.fromTableArn(this, "MusicTable", importName("MusicTableArn"));
 		const providersTable = Table.fromTableArn(this, "ProvidersTable", importName("ProvidersTableArn"));
 		const configTable = Table.fromTableArn(this, "ConfigTable", importName("ConfigTableArn"));
 		const assetsBucket = Bucket.fromBucketName(this, "AssetsBucket", importName("MovieMoodBucketName"));
@@ -45,6 +47,28 @@ export class MovieMoodCatalogStack extends Stack {
 			secretStringValue: SecretValue.cfnParameter(tmdbTokenParam),
 		});
 
+		// Spotify is optional: leave both parameters empty and the job catalogues video only.
+		const spotifyClientIdParam = new CfnParameter(this, "SpotifyClientId", {
+			type: "String",
+			description: "Spotify app client id for the music catalogue; empty leaves music out",
+			noEcho: true,
+			default: "",
+		});
+		const spotifyClientSecretParam = new CfnParameter(this, "SpotifyClientSecret", {
+			type: "String",
+			description: "Spotify app client secret for the music catalogue",
+			noEcho: true,
+			default: "",
+		});
+		const spotifySecret = new Secret(this, "SpotifySecret", {
+			secretName: `${props.projectName}/spotify-${props.stage}`,
+			description: "Spotify client id and secret used by catalog-refresh for albums",
+			secretObjectValue: {
+				clientId: SecretValue.cfnParameter(spotifyClientIdParam),
+				clientSecret: SecretValue.cfnParameter(spotifyClientSecretParam),
+			},
+		});
+
 		// A fixed name lets the function grant itself invoke permission without a circular reference.
 		const functionName = `${props.projectName}-catalog-refresh-${props.stage}`;
 		const handler = new Function(this, "CatalogRefreshHandler", {
@@ -56,28 +80,33 @@ export class MovieMoodCatalogStack extends Stack {
 			memorySize: 1024,
 			environment: {
 				MOVIES_TABLE_NAME: importName("MoviesTableName"),
+				MUSIC_TABLE_NAME: importName("MusicTableName"),
 				PROVIDERS_TABLE_NAME: importName("ProvidersTableName"),
 				CONFIG_TABLE_NAME: importName("ConfigTableName"),
 				ASSETS_BUCKET_NAME: importName("MovieMoodBucketName"),
 				VECTOR_BUCKET_NAME: vectorBucketName(props),
 				VECTOR_INDEX_NAME: VECTOR_INDEX_NAME,
 				TMDB_SECRET_ARN: tmdbSecret.secretArn,
+				SPOTIFY_SECRET_ARN: spotifySecret.secretArn,
 				MOOD_MODEL_ID: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
 				EMBEDDING_MODEL_ID: "amazon.titan-embed-text-v2:0",
 				// Comma-separated ISO country codes to catalog, in order.
 				CATALOG_COUNTRIES: "ZA,US,CA,FR,UK",
 				// Languages to store translated titles and descriptions for, besides English (ISO 639-1).
 				CATALOG_LANGUAGES: "fr,es",
-				// Discover pages per country per run (20 films each).
+				// Discover pages per country per run: 20 films or series each; for music, page 1 is the
+				// market's new releases and each further page is one genre (see MUSIC_DISCOVER_GENRES).
 				CATALOG_MAX_PAGES: "10",
 			},
 		});
 
 		moviesTable.grantReadWriteData(handler);
+		musicTable.grantReadWriteData(handler);
 		providersTable.grantWriteData(handler);
 		configTable.grantReadWriteData(handler);
 		assetsBucket.grantReadWrite(handler);
 		tmdbSecret.grantRead(handler);
+		spotifySecret.grantRead(handler);
 		handler.addToRolePolicy(new PolicyStatement({
 			actions: ["s3vectors:PutVectors", "s3vectors:DeleteVectors", "s3vectors:QueryVectors", "s3vectors:GetVectors", "s3vectors:ListVectors"],
 			resources: [vectorIndexArn],

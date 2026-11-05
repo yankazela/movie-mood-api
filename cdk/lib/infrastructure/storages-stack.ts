@@ -25,6 +25,7 @@ export class StorageStack extends Stack {
 	public readonly requests: Table;
 	public readonly jobs: Table;
 	public readonly movies: Table;
+	public readonly music: Table;
 	public readonly providers: Table;
 	public readonly config: Table;
 
@@ -65,7 +66,13 @@ export class StorageStack extends Stack {
 			partitionKey: { name: 'movieId', type: AttributeType.STRING },
 		});
 
-		// Providers: streaming providers per country, written by catalog-refresh.
+		// Music: album metadata, availability and "why" text, keyed by item id. Rebuilt nightly by catalog-refresh.
+		this.music = this.createTable(props, {
+			name: 'music',
+			partitionKey: { name: 'itemId', type: AttributeType.STRING },
+		});
+
+		// Providers: streaming and music providers per country, written by catalog-refresh.
 		this.providers = this.createTable(props, {
 			name: 'providers',
 			partitionKey: { name: 'country', type: AttributeType.STRING },

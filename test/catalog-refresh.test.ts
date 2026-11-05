@@ -357,3 +357,136 @@ describe("helpers", () => {
         expect(Object.values(metadata).some(value => Array.isArray(value) && value.length === 0)).toBe(false);
     });
 });
+
+// ---------- Spotify source: how albums become items ----------
+
+import { SpotifyAlbum, SpotifyAlbumPage, SpotifyAlbumRef, SpotifyArtist, SpotifyClient } from "../src/services/catalog/SpotifyClient";
+import { parseCredentials } from "../src/services/catalog/SpotifyClientImpl";
+import { SpotifyAlbumSource, describeAlbum, musicAvailability } from "../src/services/catalog/sources/SpotifyAlbumSource";
+import { MUSIC_SERVICE_SLUGS } from "../src/services/catalog/config";
+
+class FakeSpotify implements SpotifyClient {
+    public searches: { query: string; market: string; limit: number }[] = [];
+    public releaseCalls: { country: string; limit: number; offset: number }[] = [];
+    public artistLookups: string[][] = [];
+
+    constructor(
+        private readonly albums: Record<string, SpotifyAlbum>,
+        private readonly artists: SpotifyArtist[] = [],
+        private readonly releases: SpotifyAlbumRef[] = [],
+        private readonly found: SpotifyAlbumRef[] = [],
+    ) {}
+
+    async newReleases(country: string, limit: number, offset: number): Promise<SpotifyAlbumPage> {
+        this.releaseCalls.push({ country, limit, offset });
+        return { albums: this.releases, total: this.releases.length };
+    }
+
+    async searchTrackAlbums(query: string, market: string, limit: number): Promise<SpotifyAlbumRef[]> {
+        this.searches.push({ query, market, limit });
+        return this.found;
+    }
+
+    async getAlbum(id: string): Promise<SpotifyAlbum> {
+        const album = this.albums[id];
+        if (!album) throw new Error(`No album ${id}`);
+        return album;
+    }
+
+    async getArtists(ids: string[]): Promise<SpotifyArtist[]> {
+        this.artistLookups.push(ids);
+        return this.artists.filter(artist => ids.includes(artist.id));
+    }
+}
+
+const globalWarming: SpotifyAlbum = {
+    id: "4aawyAB9vmqN3uQ7FjRGTy", name: "Global Warming", album_type: "album", total_tracks: 3, release_date: "2012-11-16", release_date_precision: "day",
+    available_markets: ["ZA", "US", "GB"], artists: [{ id: "art1", name: "Pitbull" }], genres: [], label: "Mr. 305", popularity: 71,
+    images: [{ url: "https://i.scdn.co/640.jpg", width: 640, height: 640 }, { url: "https://i.scdn.co/300.jpg", width: 300, height: 300 }],
+    external_urls: { spotify: "https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy" },
+    tracks: {
+        total: 3,
+        items: [
+            { id: "t1", name: "Global Warming", duration_ms: 180_000, explicit: true, track_number: 1 },
+            { id: "t2", name: "Don't Stop the Party", duration_ms: 200_000, explicit: false, track_number: 2 },
+            { id: "t3", name: "Feel This Moment", duration_ms: 230_000, explicit: false, track_number: 3 },
+        ],
+    },
+};
+const pitbull: SpotifyArtist = { id: "art1", name: "Pitbull", genres: ["Dance Pop", "pop"] };
+
+describe("SpotifyAlbumSource", () => {
+    test("turns an album into a music item with the artists' genres, play time, cover and per-market availability", async () => {
+        const spotify = new FakeSpotify({ [globalWarming.id]: globalWarming }, [pitbull]);
+        const source = new SpotifyAlbumSource(spotify, ["jazz", "soul"]);
+
+        const result = await source.fetch({ sourceId: globalWarming.id }, ["ZA", "US", "CA"], "t");
+
+        expect(result?.item).toMatchObject({
+            itemId: "music:spotify-album:4aawyAB9vmqN3uQ7FjRGTy", mediaType: "music", title: "Global Warming", year: 2012, runtime: 10,
+            genres: ["dance pop", "pop"], primaryGenre: "dance pop", popularity: 71, posterKey: "posters/spotify-album-4aawyAB9vmqN3uQ7FjRGTy.jpg",
+            details: { kind: "album", artist: "Pitbull", artists: ["Pitbull"], albumType: "album", trackCount: 3, label: "Mr. 305", explicit: true, tracks: ["Global Warming", "Don't Stop the Party", "Feel This Moment"] },
+        });
+        expect(result?.item.rating).toBeUndefined();
+        expect(result?.item.availability).toEqual({
+            ZA: { services: MUSIC_SERVICE_SLUGS, links: { spotify: "https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy" }, checkedAt: "t" },
+            US: { services: MUSIC_SERVICE_SLUGS, links: { spotify: "https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy" }, checkedAt: "t" },
+        });
+        expect(result?.moodSource).toEqual({
+            itemId: "music:spotify-album:4aawyAB9vmqN3uQ7FjRGTy", mediaType: "music", title: "Global Warming", year: 2012, genres: ["dance pop", "pop"],
+            overview: "Global Warming is a 2012 album by Pitbull on Mr. 305, with 3 tracks. Tracks include Global Warming, Don't Stop the Party, Feel This Moment.",
+            keywords: ["dance pop", "pop"],
+        });
+        expect(result?.imageUrl).toBe("https://i.scdn.co/640.jpg");
+
+        // Artists recur across albums, so their genres are looked up once.
+        await source.fetch({ sourceId: globalWarming.id }, ["ZA"], "t");
+        expect(spotify.artistLookups).toEqual([["art1"]]);
+    });
+
+    test("skips singles and keeps compilations", async () => {
+        const single: SpotifyAlbum = { ...globalWarming, id: "s1", album_type: "single" };
+        const compilation: SpotifyAlbum = { ...globalWarming, id: "c1", album_type: "compilation", label: undefined, available_markets: undefined };
+        const source = new SpotifyAlbumSource(new FakeSpotify({ s1: single, c1: compilation }, [pitbull]), ["jazz"]);
+
+        expect(await source.fetch({ sourceId: "s1" }, ["ZA"], "t")).toBeNull();
+
+        const result = await source.fetch({ sourceId: "c1" }, ["ZA", "FR"], "t");
+
+        expect(result?.item.details).toMatchObject({ albumType: "compilation" });
+        // No market list means the album plays everywhere.
+        expect(Object.keys(result?.item.availability ?? {})).toEqual(["ZA", "FR"]);
+        expect(result?.moodSource.overview).toMatch(/^Global Warming is a 2012 compilation by Pitbull, with 3 tracks\./);
+    });
+
+    test("discovers the market's new releases first, then one genre per page, leaving singles out", async () => {
+        const releases: SpotifyAlbumRef[] = [{ id: "n1", name: "New", album_type: "album" }, { id: "n2", name: "Drop", album_type: "single" }];
+        const found: SpotifyAlbumRef[] = [{ id: "j1", name: "Jazz", album_type: "album" }];
+        const spotify = new FakeSpotify({}, [], releases, found);
+        const source = new SpotifyAlbumSource(spotify, ["jazz", "soul"], 25);
+
+        expect(await source.discover("ZA", 1)).toEqual({ refs: [{ sourceId: "n1" }], totalPages: 3 });
+        expect(await source.discover("ZA", 3)).toEqual({ refs: [{ sourceId: "j1" }], totalPages: 3 });
+        expect(await source.discover("ZA", 4)).toEqual({ refs: [], totalPages: 3 });
+        expect(spotify.releaseCalls).toEqual([{ country: "ZA", limit: 25, offset: 0 }]);
+        expect(spotify.searches).toEqual([{ query: 'genre:"soul"', market: "ZA", limit: 25 }]);
+    });
+
+    test("lists the same music services for every country, with search links", async () => {
+        const providers = await new SpotifyAlbumSource(new FakeSpotify({})).listProviders();
+
+        expect(providers.map(provider => provider.slug)).toEqual(["spotify", "apple-music", "youtube-music", "deezer"]);
+        expect(providers[0].deepLinkTemplate).toContain("{title}");
+        expect(providers.every(provider => provider.id >= 9000)).toBe(true);
+    });
+
+    test("helpers: availability needs a market match, and credentials need both halves", () => {
+        expect(Object.keys(musicAvailability(["us"], ["ZA", "US"], "t"))).toEqual(["US"]);
+        expect(musicAvailability(["ZA"], ["ZA"], "t").ZA.links).toBeUndefined();
+        expect(describeAlbum({ ...globalWarming, artists: [], release_date: "", label: undefined }, [], [])).toBe("Global Warming is a album by an unknown artist, with 3 tracks.");
+
+        expect(parseCredentials(JSON.stringify({ clientId: " id ", clientSecret: "secret" }))).toEqual({ clientId: "id", clientSecret: "secret" });
+        expect(parseCredentials(JSON.stringify({ clientId: "", clientSecret: "secret" }))).toBeNull();
+        expect(parseCredentials("not json")).toBeNull();
+    });
+});

@@ -38,6 +38,23 @@ export type IVideoDetails = {
     cast?: { name: string; character?: string }[];
 };
 
+/** Media-specific fields for albums. */
+export type IMusicDetails = {
+    kind: "album";
+    /** Every credited artist, joined: "Artist A, Artist B". */
+    artist: string;
+    artists: string[];
+    albumType: "album" | "compilation";
+    trackCount: number;
+    /** Track titles in order, up to the first thirty. */
+    tracks: string[];
+    label?: string;
+    /** True when any track is marked explicit. */
+    explicit: boolean;
+    /** The album's page on the source service. */
+    url?: string;
+};
+
 /**
  * One recommendable thing, whatever the medium. Stored in the catalogue table of its media
  * family (films, series and documentaries share the Movies table) and embedded in the vector index.

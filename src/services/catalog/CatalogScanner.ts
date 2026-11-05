@@ -4,4 +4,7 @@ import { ICatalogItem } from "./domain/items";
 export interface CatalogScanner {
     /** Every film, series and documentary, without the mood description and "why" caches. */
     scanVideo(): Promise<ICatalogItem[]>;
+
+    /** Every album, without the mood description and "why" caches. Empty when no music table is configured. */
+    scanMusic(): Promise<ICatalogItem[]>;
 }

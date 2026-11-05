@@ -34,6 +34,13 @@ export class UpdateUserRequest extends ValidationService implements IUpdateUserI
     @IsString({ each: true })
     services?: string[];
 
+    /** Music services, e.g. ["spotify"]; optional, and only albums are affected. */
+    @IsOptional()
+    @IsArray()
+    @ArrayUnique()
+    @IsString({ each: true })
+    musicServices?: string[];
+
     @IsOptional()
     @IsArray()
     @ArrayUnique()

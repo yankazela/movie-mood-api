@@ -3,7 +3,9 @@ import { CatalogRefreshService } from "./CatalogRefreshService";
 import { MoodDescriber } from "./MoodDescriber";
 import { BedrockMoodDescriberImpl } from "./BedrockMoodDescriberImpl";
 import { TmdbClientImpl } from "./TmdbClientImpl";
+import { SpotifyClientImpl } from "./SpotifyClientImpl";
 import { CatalogSource, ICatalogDraft } from "./sources/CatalogSource";
+import { SpotifyAlbumSource } from "./sources/SpotifyAlbumSource";
 import { TmdbMovieSource } from "./sources/TmdbMovieSource";
 import { TmdbTvSource } from "./sources/TmdbTvSource";
 import { CatalogItemRepository } from "./store/CatalogItemRepository";
@@ -69,9 +71,18 @@ export class CatalogRefreshServiceImpl implements CatalogRefreshService {
 
         const assetStore = new S3AssetStoreImpl();
         const tmdb = await TmdbClientImpl.fromSecret();
+        const sources: CatalogSource[] = [new TmdbMovieSource(tmdb, assetStore), new TmdbTvSource(tmdb, assetStore)];
+        // Music needs Spotify credentials and a music table; without either the run covers video only.
+        const spotify = process.env.MUSIC_TABLE_NAME ? await SpotifyClientImpl.fromSecret() : null;
+
+        if (spotify) {
+            sources.push(new SpotifyAlbumSource(spotify));
+        } else {
+            console.log("Music catalogue skipped: set MUSIC_TABLE_NAME and the Spotify credentials to include albums.");
+        }
 
         return new CatalogRefreshServiceImpl({
-            sources: [new TmdbMovieSource(tmdb, assetStore), new TmdbTvSource(tmdb, assetStore)],
+            sources,
             moodDescriber: new BedrockMoodDescriberImpl(),
             embedder: new TitanEmbedderImpl(),
             vectorIndex,

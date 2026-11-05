@@ -30,6 +30,8 @@ export interface IUser {
     /** ISO 3166-1 alpha-2. Unknown for federated users until they complete onboarding. */
     country?: string;
     services: string[];
+    /** Music services the user listens on, e.g. "spotify". Empty or absent means any service. */
+    musicServices?: string[];
     ratingsAllowed: string[];
     genrePrefs: Record<string, number>;
     /** Item id to the user's thumbs vote. */
@@ -74,6 +76,7 @@ export interface IUser {
 export interface IProfileInput {
     country?: string;
     services?: string[];
+    musicServices?: string[];
     ratingsAllowed?: string[];
     genrePrefs?: Record<string, number>;
 }
@@ -97,6 +100,8 @@ export interface IUpdateUserInput {
     fullName?: string;
     country?: string;
     services?: string[];
+    /** Replaces the whole list. Music services are optional: they only narrow which albums are recommended. */
+    musicServices?: string[];
     ratingsAllowed?: string[];
     /** Replaces the whole map. */
     genrePrefs?: Record<string, number>;
