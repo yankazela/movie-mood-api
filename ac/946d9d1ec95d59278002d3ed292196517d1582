@@ -1,0 +1,94 @@
+src/services/catalog/config.ts
+  s_d38d57ead48d53::t_4c476d984f272a 1-2,23-49
+  s_d38d57ead48d53::t_7f152b0b095592 50
+src/api/recommendations/index.ts
+  s_d38d57ead48d53::t_e8137397faa59c 44
+src/services/recommendations/BedrockMoodResolverImpl.ts
+  s_d38d57ead48d53::t_e8137397faa59c 17,26
+src/services/users/dto/UpdateUserRequest.ts
+  s_d38d57ead48d53::t_9d9b807b0fd539 37-43
+src/services/catalog/CatalogScanner.ts
+  s_d38d57ead48d53::t_0078b8cb201d72 7-9
+src/services/users/dto/CreateUserRequest.ts
+  s_d38d57ead48d53::t_9d9b807b0fd539 41-47
+src/services/users/UserServiceImpl.ts
+  s_d38d57ead48d53::t_9d9b807b0fd539 56,98
+src/services/recommendations/domain/types.ts
+  s_d38d57ead48d53::t_e8137397faa59c 127-128
+src/services/recommendations/dto/RecommendRequest.ts
+  s_d38d57ead48d53::t_e8137397faa59c 58-65
+src/services/recommendations/targeting.ts
+  s_d38d57ead48d53::t_e8137397faa59c 2,32-39
+README.md
+  s_d38d57ead48d53::t_d69775e64cc5da 6,16-17,118-155
+test/media-type.test.ts
+  s_d38d57ead48d53::t_8af6c394ff10a4 1,26-35
+cdk/lib/app/movie-mood-stack.ts
+  s_d38d57ead48d53::t_d69775e64cc5da 115-122,166,173,190,197,208,237,245,247,278,291,317,334,345,365,426,451
+src/services/catalog/BedrockMoodDescriberImpl.ts
+  s_d38d57ead48d53::t_4c476d984f272a 65
+cdk/lib/infrastructure/storages-stack.ts
+  s_d38d57ead48d53::t_d8c7f1e993e396 28,69-75
+src/services/catalog/sources/SpotifyAlbumSource.ts
+  s_d38d57ead48d53::t_0078b8cb201d72 1-160
+test/preferences.test.ts
+  s_d38d57ead48d53::t_8af6c394ff10a4 1,21-24
+  s_d38d57ead48d53::t_2e6c0c403165d6 25-27
+src/services/recommendations/config.ts
+  s_d38d57ead48d53::t_e8137397faa59c 6-11
+src/services/recommendations/ranking.ts
+  s_d38d57ead48d53::t_e8137397faa59c 2,76-101
+  s_d38d57ead48d53::t_f2131ec69aaea2 102-103
+test/recommendations.test.ts
+  s_d38d57ead48d53::t_ae5492e1fb2b70 337-339
+  s_d38d57ead48d53::t_8af6c394ff10a4 14,19,64-70,202-205,211-212,219-223,233-247,290-294,299-300,306,336,341,470,544-633
+  s_d38d57ead48d53::t_a9c2345990d507 634
+test/catalog-refresh.test.ts
+  s_d38d57ead48d53::t_59bd6d012cc863 360-492
+src/services/recommendations/RecommendationServiceImpl.ts
+  s_d38d57ead48d53::t_7593ecb894f8af 15-16,23,28,39,134,148-163,207-247,249,256,276,280
+src/services/catalog/SpotifyClientImpl.ts
+  s_d38d57ead48d53::t_4c476d984f272a 1-177
+src/services/catalog/CatalogBrowseServiceImpl.ts
+  s_d38d57ead48d53::t_0078b8cb201d72 4,114,117-119,176,192-193
+src/services/catalog/DynamoCatalogScannerImpl.ts
+  s_d38d57ead48d53::t_0078b8cb201d72 6,8-11,14-15,19-20,23-24,27-37,43-44,50,52
+src/services/recommendations/preferences.ts
+  s_d38d57ead48d53::t_e8137397faa59c 26-40
+src/services/users/domain/types.ts
+  s_d38d57ead48d53::t_9d9b807b0fd539 33-34,79,103-104
+src/services/media/MediaType.ts
+  s_d38d57ead48d53::t_e8137397faa59c 10-13,36-42,47,57-67
+  s_d38d57ead48d53::t_4334dac6bf0e58 68
+src/services/catalog/domain/items.ts
+  s_d38d57ead48d53::t_4c476d984f272a 41-57
+cdk/lib/app/catalog-stack.ts
+  s_d38d57ead48d53::t_d69775e64cc5da 15-17,26,50-71,83,90,97-98,104,109
+src/services/catalog/SpotifyClient.ts
+  s_d38d57ead48d53::t_4c476d984f272a 1-74
+src/services/catalog/CatalogRefreshServiceImpl.ts
+  s_d38d57ead48d53::t_0078b8cb201d72 6,8,74-82,85
+test/catalog-browse.test.ts
+  s_d38d57ead48d53::t_8af6c394ff10a4 33-40,48-51,134-143,182-187
+  s_d38d57ead48d53::t_58958009a8909d 188-189
+src/services/recommendations/BedrockExplanationServiceImpl.ts
+  s_d38d57ead48d53::t_e8137397faa59c 108
+src/services/users/UserRepository.ts
+  s_d38d57ead48d53::t_9d9b807b0fd539 6
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ac946d9d1ec95d59278002d3ed292196517d1582",
+  "prompts": {},
+  "sessions": {
+    "s_d38d57ead48d53": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "35272b22-e545-4c09-974f-46608b06b576",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "Yanick Kazadi <yanickkazadi@Mac.cgocable.net>"
+    }
+  }
+}
